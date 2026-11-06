@@ -44,9 +44,11 @@ async function linkAssets() {
     link.append(" ", size);
   }
 
+  const version = release.tag_name.replace(/^v/, "");
   const date = new Date(release.published_at).toLocaleDateString(undefined, { dateStyle: "long" });
   document.getElementById("release-line").textContent =
-    `Version ${release.tag_name.replace(/^v/, "")}, released ${date}. Built from the public source on GitHub.`;
+    `Version ${version}, released ${date}. Built from the public source on GitHub.`;
+  document.getElementById("hero-note").textContent = `Version ${version} for Windows, macOS, and Linux.`;
 }
 
 async function main() {
