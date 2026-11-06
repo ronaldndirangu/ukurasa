@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ukurasa: edit and sign PDFs on Windows, macOS, and Linux</title>
+  <meta name="description" content="Change the text of existing PDFs in their own fonts, add text, and sign. Free and open source for Windows, macOS, and Linux.">
+  <meta name="color-scheme" content="light dark">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Ukurasa: edit and sign PDFs">
+  <meta property="og:description" content="Change the text of existing PDFs in their own fonts, add text, and sign. Free and open source for Windows, macOS, and Linux.">
+  <meta property="og:url" content="https://ronaldndirangu.github.io/ukurasa/">
+  <meta property="og:image" content="https://ronaldndirangu.github.io/ukurasa/app-light.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script src="download.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap">
+      <a class="brand" href="./"><img src="icon.svg" alt="" width="28" height="28">Ukurasa</a>
+      <nav>
+        <a href="#features">Features</a>
+        <a href="#download">Download</a>
+        <a href="https://github.com/ronaldndirangu/ukurasa">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="wrap">
+        <p class="eyebrow">Free and open source PDF editor</p>
+        <h1>Edit the PDFs you already have.</h1>
+        <p class="lead">Fix a typo in a contract, add a line to a letter, then sign it. Ukurasa changes existing text in its own font, adds text that matches the page, and places your signature.</p>
+        <div class="actions">
+          <a class="button primary" id="hero-download" href="https://github.com/ronaldndirangu/ukurasa/releases/latest">Download</a>
+          <a class="button" href="#download">All platforms</a>
+        </div>
+        <p class="note" id="hero-note">Windows, macOS, and Linux. No account, no uploads.</p>
+      </div>
+      <figure class="shot">
+        <picture>
+          <source srcset="app-dark.png" media="(prefers-color-scheme: dark)">
+          <img src="app-light.png" width="1200" height="800" alt="Ukurasa with a consulting agreement open, showing the Edit text, Add text, and Sign tools in the title bar">
+        </picture>
+      </figure>
+    </section>
+
+    <section id="features" class="features">
+      <div class="wrap">
+        <h2>What it does today</h2>
+        <div class="grid">
+          <article>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M4 12h16M4 17h7"/><path d="M18 4v6"/></svg>
+            <h3>Edit text in place</h3>
+            <p>Click a line and type. The text keeps its font, size, color, and position. Select words to make them bold, italic, underlined, or a new color.</p>
+          </article>
+          <article>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14M12 5v14M9 19h6"/></svg>
+            <h3>Add text anywhere</h3>
+            <p>Click the page and write. New text takes the style of the text around it, and Enter starts a new line.</p>
+          </article>
+          <article>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17c3-6 5-9 7-9s-1 8 1 8 3-5 5-5 1 4 5 4"/><path d="M3 21h18"/></svg>
+            <h3>Sign</h3>
+            <p>Draw your signature or type your name, then place it on the page.</p>
+          </article>
+          <article>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg>
+            <h3>Saves without damage</h3>
+            <p>Edits are appended to the file when it allows, so the original stays intact underneath. Ukurasa asks first when a change would break an existing signature.</p>
+          </article>
+          <article>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 5 14h6l-1 7 8-11h-6z"/></svg>
+            <h3>Fast reading</h3>
+            <p>Thumbnails, the document outline, smooth zoom, and quick page jumps. Pages render with PDFium, the engine behind the PDF viewer in Chrome.</p>
+          </article>
+          <article>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
+            <h3>Private by design</h3>
+            <p>Everything runs on your computer. No account, no uploads, and no tracking.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="roadmap">
+      <div class="wrap">
+        <h2>Coming next</h2>
+        <ul>
+          <li>Find, select, and copy text</li>
+          <li>Fill in forms</li>
+          <li>Highlights, notes, and drawings</li>
+          <li>Certificate signatures (PAdES)</li>
+          <li>Merge, split, and reorder pages</li>
+        </ul>
+        <p>Follow along or suggest a feature on <a href="https://github.com/ronaldndirangu/ukurasa/issues">GitHub</a>.</p>
+      </div>
+    </section>
+
+    <section id="download" class="download">
+      <div class="wrap">
+        <h2>Download</h2>
+        <p class="sub" id="release-line">Every release is built from the public source on GitHub.</p>
+        <div class="platforms">
+          <article data-os="windows">
+            <h3>Windows</h3>
+            <p class="req">Windows 10 and 11, 64-bit</p>
+            <a class="button primary" data-asset="_x64-setup.exe" href="https://github.com/ronaldndirangu/ukurasa/releases/latest">Installer (.exe)</a>
+            <a class="alt" data-asset="_x64_en-US.msi" href="https://github.com/ronaldndirangu/ukurasa/releases/latest">MSI for all users</a>
+          </article>
+          <article data-os="mac">
+            <h3>macOS</h3>
+            <p class="req">macOS 11 or later</p>
+            <a class="button primary" data-asset="_aarch64.dmg" href="https://github.com/ronaldndirangu/ukurasa/releases/latest">Apple silicon (.dmg)</a>
+            <a class="alt" data-asset="_x64.dmg" href="https://github.com/ronaldndirangu/ukurasa/releases/latest">Intel (.dmg)</a>
+          </article>
+          <article data-os="linux">
+            <h3>Linux</h3>
+            <p class="req">64-bit, Ubuntu 22.04 or later</p>
+            <a class="button primary" data-asset="_amd64.deb" href="https://github.com/ronaldndirangu/ukurasa/releases/latest">Ubuntu, Debian (.deb)</a>
+            <a class="alt" data-asset=".x86_64.rpm" href="https://github.com/ronaldndirangu/ukurasa/releases/latest">Fedora (.rpm)</a>
+            <a class="alt" data-asset="_amd64.AppImage" href="https://github.com/ronaldndirangu/ukurasa/releases/latest">AppImage</a>
+          </article>
+        </div>
+        <details class="first-launch">
+          <summary>First launch on Windows and macOS</summary>
+          <p>The installers are not code signed yet, so the first launch needs one extra step.</p>
+          <p><strong>Windows:</strong> SmartScreen shows "Windows protected your PC". Choose <strong>More info</strong>, then <strong>Run anyway</strong>.</p>
+          <p><strong>macOS:</strong> if macOS says Ukurasa "is damaged" or "can't be opened", open <strong>System Settings &gt; Privacy &amp; Security</strong> and choose <strong>Open Anyway</strong>, or run this once in Terminal:</p>
+          <pre><code>xattr -dr com.apple.quarantine /Applications/Ukurasa.app</code></pre>
+        </details>
+      </div>
+    </section>
+
+    <section class="source">
+      <div class="wrap">
+        <h2>Open source</h2>
+        <p>Ukurasa is built with Rust, Tauri, Svelte, and PDFium, and licensed under MIT or Apache 2.0. Read the code, report a bug, or send a pull request.</p>
+        <a class="button" href="https://github.com/ronaldndirangu/ukurasa">View on GitHub</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <p><em>Ukurasa</em> (oo-koo-RAH-sah) is Swahili for "page".</p>
+      <nav>
+        <a href="https://github.com/ronaldndirangu/ukurasa/releases">Releases</a>
+        <a href="https://github.com/ronaldndirangu/ukurasa/issues">Report a problem</a>
+        <a href="https://github.com/ronaldndirangu/ukurasa#license">License</a>
+      </nav>
+    </div>
+  </footer>
+</body>
+</html>

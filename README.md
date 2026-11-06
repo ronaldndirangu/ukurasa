@@ -2,7 +2,9 @@
 
 *Ukurasa* (oo-koo-RAH-sah) is Swahili for "page".
 
-A fast, free, open source PDF reader and editor for Windows, macOS, and Linux, built with Rust and Tauri. Edit existing PDFs (add and replace text, fill forms, annotate, change words in place) and apply visual or certificate-based (PAdES) signatures.
+A fast, free, open source PDF reader and editor for Windows, macOS, and Linux, built with Rust and Tauri. Change the text of existing PDFs in their own fonts, add text that matches the page, and sign with a drawn or typed signature. Form filling, annotations, and certificate-based (PAdES) signatures are planned.
+
+Website: <https://ronaldndirangu.github.io/ukurasa/>
 
 Status: early development. See [docs/plan.md](docs/plan.md) for the architecture and roadmap, and [docs/infrastructure.md](docs/infrastructure.md) for how builds, CI, releases, and the runtime fit together.
 

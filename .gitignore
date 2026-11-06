@@ -13,6 +13,9 @@ node_modules/
 # PDFium binaries fetched by app/scripts/fetch-pdfium.mjs
 /app/src-tauri/pdfium/
 
+# Website icon, copied from app/src-tauri/icons by the Pages workflow
+/site/icon.svg
+
 # Editors and OS
 .DS_Store
 Thumbs.db
