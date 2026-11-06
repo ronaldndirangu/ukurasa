@@ -220,7 +220,8 @@ To build a package locally instead, run `pnpm tauri build` in `app/` and attach 
 The website at <https://ronaldndirangu.github.io/ukurasa/> is a static page in `site/` with no build step. `.github/workflows/pages.yml` publishes it to GitHub Pages when a push to `main` changes `site/`, the app icon, or the workflow, and from **Actions > Pages > Run workflow**. The workflow copies `app/src-tauri/icons/icon.svg` into the site, so the logo has one source.
 
 - `index.html` and `style.css` hold the page. The colors follow the app's theme, and the page switches to dark with the system setting.
-- `download.js` asks the GitHub API for the latest release when the page loads, links each download button to its package, and shows the file size. It puts the visitor's platform first. If the request fails, the buttons open the latest release page.
+- The comparison table describes kinds of PDF tools, not named products. Keep its claims broad and update it when Ukurasa gains or loses a feature.
+- `download.js` asks the GitHub API for the latest release when the page loads, links each download button to its package, and shows the file size and the version. It puts the visitor's platform first. If the request fails, the buttons open the latest release page.
 - `app-light.png` and `app-dark.png` are 2400 by 1600 screenshots of the release build. Retake them when the window changes noticeably.
 
 To preview the site locally, copy `app/src-tauri/icons/icon.svg` into `site/` (Git ignores the copy) and serve the folder, for example with `python -m http.server` from `site/`.

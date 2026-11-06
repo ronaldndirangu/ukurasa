@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Ukurasa: edit and sign PDFs on Windows, macOS, and Linux</title>
-  <meta name="description" content="Change the text of existing PDFs in their own fonts, add text, and sign. Free and open source for Windows, macOS, and Linux.">
+  <title>Ukurasa: edit and sign PDFs for free, with no account</title>
+  <meta name="description" content="Change the text already in a PDF, add your own, and sign it on your computer. Free and open source, with no account, no subscription, and no uploads. For Windows, macOS, and Linux.">
   <meta name="color-scheme" content="light dark">
   <meta property="og:type" content="website">
-  <meta property="og:title" content="Ukurasa: edit and sign PDFs">
-  <meta property="og:description" content="Change the text of existing PDFs in their own fonts, add text, and sign. Free and open source for Windows, macOS, and Linux.">
+  <meta property="og:title" content="Ukurasa: edit and sign PDFs for free">
+  <meta property="og:description" content="Change the text already in a PDF, add your own, and sign it on your computer. Free and open source, with no account, no subscription, and no uploads.">
   <meta property="og:url" content="https://ronaldndirangu.github.io/ukurasa/">
   <meta property="og:image" content="https://ronaldndirangu.github.io/ukurasa/app-light.png">
   <meta name="twitter:card" content="summary_large_image">
@@ -17,28 +17,38 @@
   <script src="download.js" defer></script>
 </head>
 <body>
+  <a class="skip" href="#main">Skip to content</a>
+
   <header class="top">
     <div class="wrap">
       <a class="brand" href="./"><img src="icon.svg" alt="" width="28" height="28">Ukurasa</a>
-      <nav>
+      <nav aria-label="Main">
+        <a href="#why">Why Ukurasa</a>
         <a href="#features">Features</a>
-        <a href="#download">Download</a>
+        <a href="#faq">FAQ</a>
         <a href="https://github.com/ronaldndirangu/ukurasa">GitHub</a>
+        <a class="button primary small" href="#download">Download</a>
       </nav>
     </div>
   </header>
 
-  <main>
+  <main id="main">
     <section class="hero">
       <div class="wrap">
         <p class="eyebrow">Free and open source PDF editor</p>
-        <h1>Edit the PDFs you already have.</h1>
-        <p class="lead">Fix a typo in a contract, add a line to a letter, then sign it. Ukurasa changes existing text in its own font, adds text that matches the page, and places your signature.</p>
+        <h1>Edit and sign PDFs. <span>Free, no account.</span></h1>
+        <p class="lead">Fix a typo in a contract, add a line to a letter, and sign it by drawing or typing your name, all on your own computer. Ukurasa edits the text already on the page and keeps its font, so the document still looks like the original.</p>
         <div class="actions">
-          <a class="button primary" id="hero-download" href="https://github.com/ronaldndirangu/ukurasa/releases/latest">Download</a>
-          <a class="button" href="#download">All platforms</a>
+          <a class="button primary large" id="hero-download" href="https://github.com/ronaldndirangu/ukurasa/releases/latest">Download</a>
+          <a class="button large" href="#download">All platforms</a>
         </div>
-        <p class="note" id="hero-note">Windows, macOS, and Linux. No account, no uploads.</p>
+        <ul class="promises">
+          <li>No account or sign-in</li>
+          <li>No subscription or trial</li>
+          <li>No watermarks or page limits</li>
+          <li>No uploads, works offline</li>
+        </ul>
+        <p class="note" id="hero-note">For Windows, macOS, and Linux.</p>
       </div>
       <figure class="shot">
         <picture>
@@ -48,33 +58,118 @@
       </figure>
     </section>
 
+    <section id="why" class="why">
+      <div class="wrap">
+        <p class="eyebrow">Why Ukurasa</p>
+        <h2>Many PDF tools make you choose.</h2>
+        <p class="sub">Many free readers let you add text or a signature but can't change the words already there. Tools that can usually charge a subscription, limit free use, or process your file on their server. Ukurasa does both for free, on your computer.</p>
+        <div class="table-scroll" role="region" aria-label="Ukurasa compared with other kinds of PDF tools" tabindex="0">
+          <table class="compare">
+            <caption class="sr-only">Ukurasa compared with other kinds of PDF tools</caption>
+            <thead>
+              <tr>
+                <th scope="col"><span class="sr-only">Feature</span></th>
+                <th scope="col" class="us"><img src="icon.svg" alt="" width="22" height="22">Ukurasa</th>
+                <th scope="col">Free PDF readers</th>
+                <th scope="col">Online PDF editors</th>
+                <th scope="col">Paid PDF editors</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Change the text already in a PDF</th>
+                <td class="us yes"><span class="sr-only">Yes</span></td>
+                <td class="no">Rarely</td>
+                <td class="some">Some tools or plans</td>
+                <td class="yes"><span class="sr-only">Yes</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Add text and a signature</th>
+                <td class="us yes"><span class="sr-only">Yes</span></td>
+                <td class="some">Most readers</td>
+                <td class="yes"><span class="sr-only">Yes</span></td>
+                <td class="yes"><span class="sr-only">Yes</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Free, with no limits or watermarks</th>
+                <td class="us yes"><span class="sr-only">Yes</span></td>
+                <td class="yes"><span class="sr-only">Yes</span></td>
+                <td class="some">Limited free tier</td>
+                <td class="no">Subscription or license</td>
+              </tr>
+              <tr>
+                <th scope="row">No account needed</th>
+                <td class="us yes"><span class="sr-only">Yes</span></td>
+                <td class="yes"><span class="sr-only">Yes</span></td>
+                <td class="some">For basic use</td>
+                <td class="some">Varies by license</td>
+              </tr>
+              <tr>
+                <th scope="row">Files stay on your computer</th>
+                <td class="us yes"><span class="sr-only">Yes</span></td>
+                <td class="yes"><span class="sr-only">Yes</span></td>
+                <td class="no">Usually uploaded</td>
+                <td class="yes"><span class="sr-only">Yes</span></td>
+              </tr>
+              <tr>
+                <th scope="row">Open source</th>
+                <td class="us yes"><span class="sr-only">Yes</span></td>
+                <td class="some">Some</td>
+                <td class="no">Rarely</td>
+                <td class="no">Rarely</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="fine">Broad categories only. Features and limits vary by product and plan.</p>
+      </div>
+    </section>
+
     <section id="features" class="features">
       <div class="wrap">
+        <p class="eyebrow">Features</p>
         <h2>What it does today</h2>
-        <div class="grid">
+        <div class="spotlight">
           <article>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M4 12h16M4 17h7"/><path d="M18 4v6"/></svg>
+            <div class="demo" aria-hidden="true">
+              <div class="paper">
+                <p class="doc-heading">3. Timeline</p>
+                <p class="doc-line editing">Work starts on 24<i class="caret"></i> November 2026.</p>
+                <p class="doc-line">The studio will deliver the concepts</p>
+                <p class="doc-line">by 1 December and the final files</p>
+              </div>
+            </div>
             <h3>Edit text in place</h3>
-            <p>Click a line and type. The text keeps its font, size, color, and position. Select words to make them bold, italic, underlined, or a new color.</p>
+            <p>Click a line or paragraph and type. The text keeps its font, size, color, and position. Select words to make them bold, italic, underlined, or a new color. If the PDF's font lacks a character, Ukurasa tells you instead of drawing a blank box.</p>
           </article>
+          <article>
+            <div class="demo" aria-hidden="true">
+              <div class="paper">
+                <p class="doc-line">Signed for Kilima Bakery</p>
+                <div class="signature">
+                  <svg viewBox="0 0 200 64"><path d="M8 46c7-15 15-32 23-32 6 0-3 31 3 31 5 0 9-17 14-17 4 0 1 15 6 15 6 0 10-23 16-23 5 0-2 25 4 25 7 0 12-15 18-15 4 0 2 11 7 11 8 0 14-13 22-13 6 0 4 9 10 9 9 0 20-7 34-12M26 55c42-6 92-8 150-5"/></svg>
+                </div>
+                <p class="doc-line signer">Amina Wanjiru, Director</p>
+              </div>
+            </div>
+            <h3>Add your signature</h3>
+            <p>Draw your signature or type your name, then place it on the page. Certificate signatures are on the roadmap.</p>
+          </article>
+        </div>
+        <div class="grid">
           <article>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5h14M12 5v14M9 19h6"/></svg>
             <h3>Add text anywhere</h3>
             <p>Click the page and write. New text takes the style of the text around it, and Enter starts a new line.</p>
           </article>
           <article>
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 17c3-6 5-9 7-9s-1 8 1 8 3-5 5-5 1 4 5 4"/><path d="M3 21h18"/></svg>
-            <h3>Sign</h3>
-            <p>Draw your signature or type your name, then place it on the page.</p>
-          </article>
-          <article>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></svg>
-            <h3>Saves without damage</h3>
-            <p>Edits are appended to the file when it allows, so the original stays intact underneath. Ukurasa asks first when a change would break an existing signature.</p>
+            <h3>Saves incrementally</h3>
+            <p>Ukurasa appends edits to the PDF where possible, so the original content stays in the file. It warns you before a change would invalidate an existing digital signature.</p>
           </article>
           <article>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3 5 14h6l-1 7 8-11h-6z"/></svg>
-            <h3>Fast reading</h3>
+            <h3>Reading and navigation</h3>
             <p>Thumbnails, the document outline, smooth zoom, and quick page jumps. Pages render with PDFium, the engine behind the PDF viewer in Chrome.</p>
           </article>
           <article>
@@ -125,7 +220,7 @@
             <a class="alt" data-asset="_amd64.AppImage" href="https://github.com/ronaldndirangu/ukurasa/releases/latest">AppImage</a>
           </article>
         </div>
-        <details class="first-launch">
+        <details class="first-launch" id="first-launch">
           <summary>First launch on Windows and macOS</summary>
           <p>The installers are not code signed yet, so the first launch needs one extra step.</p>
           <p><strong>Windows:</strong> SmartScreen shows "Windows protected your PC". Choose <strong>More info</strong>, then <strong>Run anyway</strong>.</p>
@@ -135,11 +230,44 @@
       </div>
     </section>
 
-    <section class="source">
+    <section id="faq" class="faq">
       <div class="wrap">
-        <h2>Open source</h2>
-        <p>Ukurasa is built with Rust, Tauri, Svelte, and PDFium, and licensed under MIT or Apache 2.0. Read the code, report a bug, or send a pull request.</p>
-        <a class="button" href="https://github.com/ronaldndirangu/ukurasa">View on GitHub</a>
+        <h2>Questions</h2>
+        <details>
+          <summary>Is Ukurasa really free?</summary>
+          <p>Yes, and you don't need an account. Ukurasa is open source under the MIT or Apache 2.0 license. There's no sign-in, trial, watermark, page limit, or ads.</p>
+        </details>
+        <details>
+          <summary>Where do my files go?</summary>
+          <p>They stay on your computer. Ukurasa opens and saves local files and doesn't connect to the internet, so it works offline.</p>
+        </details>
+        <details>
+          <summary>Why can't I type some characters?</summary>
+          <p>Many PDFs embed only the characters the document already uses. Ukurasa refuses characters that the embedded font can't draw, so your edit never shows up as boxes or missing text.</p>
+        </details>
+        <details>
+          <summary>Does Ukurasa create certificate signatures?</summary>
+          <p>Not yet. Ukurasa adds drawn or typed signatures to the page. Certificate signatures (PAdES) are on the roadmap.</p>
+        </details>
+        <details>
+          <summary>Can it edit scanned documents?</summary>
+          <p>No. Scanned pages are images, and Ukurasa doesn't include text recognition (OCR). You can still add text and a signature.</p>
+        </details>
+        <details>
+          <summary>Why does my computer warn me the first time I open it?</summary>
+          <p>The installers aren't code signed yet. <a href="#first-launch">First launch on Windows and macOS</a> explains the one extra step.</p>
+        </details>
+      </div>
+    </section>
+
+    <section class="cta">
+      <div class="wrap">
+        <h2>Edit your next PDF for free.</h2>
+        <p>Ukurasa is built with Rust, Tauri, Svelte, and PDFium. Read the code, report a bug, or send a pull request.</p>
+        <div class="actions">
+          <a class="button primary large" href="#download">Download Ukurasa</a>
+          <a class="button large" href="https://github.com/ronaldndirangu/ukurasa">View on GitHub</a>
+        </div>
       </div>
     </section>
   </main>
@@ -147,7 +275,7 @@
   <footer>
     <div class="wrap">
       <p><em>Ukurasa</em> (oo-koo-RAH-sah) is Swahili for "page".</p>
-      <nav>
+      <nav aria-label="Footer">
         <a href="https://github.com/ronaldndirangu/ukurasa/releases">Releases</a>
         <a href="https://github.com/ronaldndirangu/ukurasa/issues">Report a problem</a>
         <a href="https://github.com/ronaldndirangu/ukurasa#license">License</a>
