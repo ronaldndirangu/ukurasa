@@ -157,13 +157,17 @@ CI does not build installers or publish releases; the [Release workflow](#releas
 
 ### Duration and cost
 
-The first run took about 15 minutes on Windows, 6 on Ubuntu, and 2 on macOS; later runs reuse the Cargo cache. Public repositories run on standard runners for free. Private repositories pay for minutes beyond the plan's included usage, and a macOS minute costs about 10 times a Linux minute, a Windows minute about twice. Watch usage under **Settings > Billing and plans** on GitHub. To spend less, skip macOS on pull requests or add `paths-ignore` for documentation changes.
+The first run took about 15 minutes on Windows, 6 on Ubuntu, and 2 on macOS; later runs reuse the Cargo cache. The repository is public, so standard GitHub-hosted runners cost nothing on every platform, for CI and releases alike. A private repository would pay for minutes beyond the plan's included usage, with a macOS minute costing about 10 times a Linux minute.
 
-A Release run with the default platforms builds twice on macOS, so expect it to use more included minutes than a CI run. Check the run's **Usage** page after the first release to get a real number.
+### Protected main
 
-### Required checks
+The `Protect main` ruleset (**Settings > Rules > Rulesets**) applies to `main` and has no bypass, so it binds the owner too:
 
-To block merges into `main` until CI passes, add a branch ruleset under **Settings > Rules** that requires the `windows-latest`, `macos-latest`, and `ubuntu-22.04` checks. Private repositories need GitHub Pro or a paid organization plan for rulesets.
+- Every change arrives through a pull request. No approval is required, because GitHub does not let authors approve their own pull requests.
+- The `windows-latest`, `macos-latest`, and `ubuntu-22.04` CI checks must pass before merging.
+- Force pushes and deleting `main` are blocked.
+
+The required checks match the CI job names. Renaming a job or changing the matrix means updating the ruleset too, or pull requests wait for a check that never reports.
 
 ## Releases
 
@@ -194,7 +198,7 @@ The `platforms` input picks the runners: `macOS and Linux` (the default), `All`,
 
 If one build fails, choose **Re-run failed jobs** on the run page. The draft stays unpublished until every build passes.
 
-A release build takes several minutes per platform, and the macOS minutes cost the most on a private repository (see [Duration and cost](#duration-and-cost)). Releases are infrequent, so the workflow skips the Cargo cache.
+Releases are infrequent, so the workflow skips the Cargo cache and each build starts clean. The workflow creates tags and releases only, so the `main` ruleset does not affect it.
 
 To build a package locally instead, run `pnpm tauri build` in `app/` and attach the files with `gh release upload v0.2.0 <files> --clobber`. Use `gh auth status` to confirm that `gh` uses the account that owns the repository. Version numbers stay at `0.x` while the project is in early development.
 
@@ -209,8 +213,8 @@ To sign later:
 
 ## Possible automation
 
-- Start the Release workflow automatically, for example on every `v*` tag push or every merge to `main` with an automatic version bump. Each run spends macOS minutes, so this matters most on a private repository.
-- Automatic updates with `tauri-plugin-updater`, which checks a signed `latest.json` manifest published with each release. Downloads from a private repository need a token, so this fits best once the repository is public.
+- Start the Release workflow automatically, for example on every `v*` tag push or every merge to `main`. An automatic version bump has to arrive as a pull request, because the `main` ruleset has no bypass.
+- Automatic updates with `tauri-plugin-updater`, which checks a signed `latest.json` manifest published with each release. The repository is public, so the app can fetch the manifest and installers without a token.
 - More architectures: Windows arm64 and Linux arm64 through extra Release workflow runners on GitHub's arm64 images.
 - Distribution channels from the plan: winget, a Homebrew cask, and Flathub.
 

@@ -8,7 +8,7 @@ Status: early development. See [docs/plan.md](docs/plan.md) for the architecture
 
 ## Install
 
-Download the package for your platform from [Releases](https://github.com/ronaldndirangu/ukurasa/releases). While the repository is private, only its collaborators can see releases.
+Download the package for your platform from [Releases](https://github.com/ronaldndirangu/ukurasa/releases).
 
 | Platform | Package | How to install |
 |---|---|---|
