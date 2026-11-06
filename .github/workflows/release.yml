@@ -1,0 +1,161 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag, for example v0.1.0. It must match the version in Cargo.toml.
+        required: true
+        type: string
+      platforms:
+        description: Packages to build
+        required: true
+        type: choice
+        default: macOS and Linux
+        options:
+          - macOS and Linux
+          - All
+          - macOS
+          - Linux
+          - Windows
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ inputs.tag }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  GH_TOKEN: ${{ github.token }}
+  TAG: ${{ inputs.tag }}
+
+jobs:
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Resolve commit and check version
+        id: commit
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::The tag must look like v1.2.3"
+            exit 1
+          fi
+          if sha=$(git rev-parse -q --verify "refs/tags/$TAG^{commit}"); then
+            echo "Building the existing tag $TAG at $sha"
+          else
+            sha=$GITHUB_SHA
+            echo "Tag $TAG does not exist yet; publishing the release creates it at $sha"
+          fi
+          version=$(git show "$sha:Cargo.toml" | sed -n 's/^version = "\(.*\)"$/\1/p' | head -n 1)
+          if [[ "v$version" != "$TAG" ]]; then
+            echo "::error::Cargo.toml at $sha has version $version, which does not match $TAG"
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Create draft release
+        env:
+          SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            echo "Release $TAG exists"
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --draft --target "$SHA" \
+              --title "Ukurasa ${TAG#v}" --generate-notes \
+              --notes "See the README for install steps. The installers are unsigned, so Windows and macOS warn on first launch."
+          fi
+
+      - name: Choose runners
+        id: matrix
+        env:
+          PLATFORMS: ${{ inputs.platforms }}
+        run: |
+          mac='{"name":"macOS (Apple silicon)","os":"macos-latest"},{"name":"macOS (Intel)","os":"macos-15-intel"}'
+          linux='{"name":"Linux","os":"ubuntu-22.04"}'
+          windows='{"name":"Windows","os":"windows-latest"}'
+          case "$PLATFORMS" in
+            "macOS and Linux") list="$mac,$linux" ;;
+            "All") list="$mac,$linux,$windows" ;;
+            "macOS") list="$mac" ;;
+            "Linux") list="$linux" ;;
+            "Windows") list="$windows" ;;
+            *) echo "::error::Unknown platforms: $PLATFORMS"; exit 1 ;;
+          esac
+          echo "matrix=[$list]" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: ${{ matrix.name }}
+    needs: prepare
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      - name: Install Rust toolchain
+        run: rustup toolchain install
+
+      - uses: pnpm/action-setup@v6
+        with:
+          package_json_file: app/package.json
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/pnpm-lock.yaml
+
+      - name: Install frontend dependencies and PDFium
+        working-directory: app
+        run: pnpm install --frozen-lockfile
+
+      - name: Build installers
+        working-directory: app
+        run: pnpm tauri build
+
+      - name: Upload installers
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(target/release/bundle/{nsis/*.exe,msi/*.msi,dmg/*.dmg,deb/*.deb,rpm/*.rpm,appimage/*.AppImage})
+          if (( ${#files[@]} == 0 )); then
+            echo "::error::No installers found in target/release/bundle"
+            exit 1
+          fi
+          printf '%s\n' "${files[@]}"
+          gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+
+  publish:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the draft
+        run: |
+          draft=$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)
+          if [[ "$draft" == true ]]; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+          else
+            echo "Release $TAG is already published"
+          fi

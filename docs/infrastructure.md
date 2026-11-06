@@ -4,17 +4,17 @@ How Ukurasa is built, checked, released, and run on a user's machine. [plan.md](
 
 ```mermaid
 flowchart LR
-  local[Local checkout] -->|git push| main[main on GitHub]
-  pr[Pull request] --> ci
-  mainBranch --> ci["CI: Windows, macOS, Ubuntu 22.04"]
-  local -->|pnpm tauri build| bundle["Installers in target/release/bundle"]
-  bundle -->|gh release create| release["GitHub Release vX.Y.Z"]
+  local["Local checkout"] -->|git push| mainBranch["main on GitHub"]
+  pr["Pull request"] --> ci["CI: Windows, macOS, Ubuntu 22.04"]
+  mainBranch --> ci
+  mainBranch -->|"Run workflow"| workflow["Release workflow"]
+  workflow -->|"build and upload"| release["GitHub Release vX.Y.Z"]
 ```
 
 ## Repository layout
 
 ```
-.github/workflows/ci.yml    CI workflow
+.github/workflows/          CI (ci.yml) and Release (release.yml) workflows
 app/
   frontend/                 Svelte 5 + TypeScript UI, built by Vite
   scripts/fetch-pdfium.mjs  PDFium download, run by pnpm install
@@ -153,11 +153,13 @@ Each job runs on `windows-latest`, `macos-latest` (Apple silicon), and `ubuntu-2
 10. `cargo clippy --workspace --all-targets --locked -- -D warnings`.
 11. `cargo test --workspace --locked`.
 
-CI does not build installers, sign anything, or publish releases.
+CI does not build installers or publish releases; the [Release workflow](#releases) does.
 
 ### Duration and cost
 
 The first run took about 15 minutes on Windows, 6 on Ubuntu, and 2 on macOS; later runs reuse the Cargo cache. Public repositories run on standard runners for free. Private repositories pay for minutes beyond the plan's included usage, and a macOS minute costs about 10 times a Linux minute, a Windows minute about twice. Watch usage under **Settings > Billing and plans** on GitHub. To spend less, skip macOS on pull requests or add `paths-ignore` for documentation changes.
+
+A Release run with the default platforms builds twice on macOS, so expect it to use more included minutes than a CI run. Check the run's **Usage** page after the first release to get a real number.
 
 ### Required checks
 
@@ -165,39 +167,36 @@ To block merges into `main` until CI passes, add a branch ruleset under **Settin
 
 ## Releases
 
-Releases are manual for now. Each one is a Git tag `v<version>` with the installers attached.
+Each release is a Git tag `v<version>` with the installers attached. `.github/workflows/release.yml` builds them on GitHub's runners and runs only when started by hand.
 
 1. **Bump the version.** Edit `version` under `[workspace.package]` in the root `Cargo.toml`, and keep `app/package.json` in step. Tauri reads the app version from Cargo, because `tauri.conf.json` sets none. The next build updates `Cargo.lock`; commit both files.
 2. **Merge to `main`** and wait for CI to pass.
-3. **Build on Windows** from an up-to-date `main`:
-
-   ```powershell
-   cd app
-   pnpm install --frozen-lockfile
-   pnpm tauri build
-   cd ..
-   ```
-
-4. **Create the release.** `gh release create` creates the tag on `main` if it does not exist, and `--generate-notes` lists the changes since the previous tag.
-
-   ```powershell
-   $v = "0.2.0"
-   gh release create "v$v" `
-     "target\release\bundle\nsis\Ukurasa_${v}_x64-setup.exe" `
-     "target\release\bundle\msi\Ukurasa_${v}_x64_en-US.msi" `
-     --target main --title "Ukurasa $v" --generate-notes
-   ```
-
-5. **Add macOS and Linux packages** when you can build them. On the Mac or Linux machine, check out the tag, build, and upload:
+3. **Run the Release workflow** from **Actions > Release > Run workflow** on `main`, or with `gh`:
 
    ```sh
-   git fetch --tags && git checkout v0.2.0
-   cd app && pnpm install --frozen-lockfile && pnpm tauri build && cd ..
-   gh release upload v0.2.0 target/release/bundle/dmg/*.dmg
-   gh release upload v0.2.0 target/release/bundle/deb/*.deb target/release/bundle/rpm/*.rpm target/release/bundle/appimage/*.AppImage
+   gh workflow run release.yml -f tag=v0.2.0 -f platforms=All
    ```
 
-Use `gh auth status` to confirm that `gh` uses the account that owns the repository. Pass `--clobber` to `gh release upload` to replace an asset. Version numbers stay at `0.x` while the project is in early development.
+The workflow has three jobs:
+
+1. **Prepare** checks that the tag looks like `v1.2.3` and that it matches `version` in `Cargo.toml`. It builds the commit the tag points to, or the latest commit on `main` when the tag does not exist yet. If the release does not exist, it creates a draft with notes generated from the changes since the previous tag.
+2. **Build** runs `pnpm install --frozen-lockfile` and `pnpm tauri build` on each chosen runner, then uploads the packages to the release, replacing any with the same name.
+3. **Publish** publishes the draft once every build succeeds, which also creates the tag. A release that is already published keeps its state and gains the new packages.
+
+| Runner | Packages |
+|---|---|
+| `macos-latest` (Apple silicon) | `Ukurasa_<version>_aarch64.dmg` |
+| `macos-15-intel` | `Ukurasa_<version>_x64.dmg` |
+| `ubuntu-22.04` | deb, rpm, and AppImage |
+| `windows-latest` | NSIS `setup.exe` and MSI |
+
+The `platforms` input picks the runners: `macOS and Linux` (the default), `All`, `macOS`, `Linux`, or `Windows`. Use the default to add packages to a release whose Windows installers were built locally, such as v0.1.0. `macos-15-intel` is GitHub's last Intel macOS image and is scheduled to retire in August 2027.
+
+If one build fails, choose **Re-run failed jobs** on the run page. The draft stays unpublished until every build passes.
+
+A release build takes several minutes per platform, and the macOS minutes cost the most on a private repository (see [Duration and cost](#duration-and-cost)). Releases are infrequent, so the workflow skips the Cargo cache.
+
+To build a package locally instead, run `pnpm tauri build` in `app/` and attach the files with `gh release upload v0.2.0 <files> --clobber`. Use `gh auth status` to confirm that `gh` uses the account that owns the repository. Version numbers stay at `0.x` while the project is in early development.
 
 ## Code signing
 
@@ -210,9 +209,9 @@ To sign later:
 
 ## Possible automation
 
-- A release workflow using [tauri-apps/tauri-action](https://github.com/tauri-apps/tauri-action) on every `v*` tag, building all platforms and uploading to a draft release. Runner minutes make this the largest Actions cost on a private repository, mostly for macOS.
+- Start the Release workflow automatically, for example on every `v*` tag push or every merge to `main` with an automatic version bump. Each run spends macOS minutes, so this matters most on a private repository.
 - Automatic updates with `tauri-plugin-updater`, which checks a signed `latest.json` manifest published with each release. Downloads from a private repository need a token, so this fits best once the repository is public.
-- More architectures: Windows arm64, Intel macOS, and Linux arm64 through extra matrix entries on GitHub's arm64 and Intel runners.
+- More architectures: Windows arm64 and Linux arm64 through extra Release workflow runners on GitHub's arm64 images.
 - Distribution channels from the plan: winget, a Homebrew cask, and Flathub.
 
 ## Line endings
