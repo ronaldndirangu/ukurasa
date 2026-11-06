@@ -9,12 +9,14 @@ flowchart LR
   mainBranch --> ci
   mainBranch -->|"Run workflow"| workflow["Release workflow"]
   workflow -->|"build and upload"| release["GitHub Release vX.Y.Z"]
+  mainBranch -->|"site/ changes"| pages["Website on GitHub Pages"]
+  pages -.->|"latest release links"| release
 ```
 
 ## Repository layout
 
 ```
-.github/workflows/          CI (ci.yml) and Release (release.yml) workflows
+.github/workflows/          CI (ci.yml), Release (release.yml), and Pages (pages.yml) workflows
 app/
   frontend/                 Svelte 5 + TypeScript UI, built by Vite
   scripts/fetch-pdfium.mjs  PDFium download, run by pnpm install
@@ -27,6 +29,7 @@ app/
   package.json              frontend scripts and the Tauri CLI
 crates/                     Rust libraries: core, edit, geom, render, worker (see plan.md)
 docs/                       plan and this document
+site/                       website published to GitHub Pages
 Cargo.toml                  workspace members, shared version, dev-profile overrides
 rust-toolchain.toml         Rust channel and components
 .gitattributes              line endings
@@ -211,6 +214,18 @@ If one build fails, choose **Re-run failed jobs** on the run page. The draft sta
 Releases are infrequent, so the workflow skips the Cargo cache and each build starts clean. The workflow creates tags and releases only, so the `main` ruleset does not affect it.
 
 To build a package locally instead, run `pnpm tauri build` in `app/` and attach the files with `gh release upload v0.2.0 <files> --clobber`. Use `gh auth status` to confirm that `gh` uses the account that owns the repository. Version numbers stay at `0.x` while the project is in early development.
+
+## Website
+
+The website at <https://ronaldndirangu.github.io/ukurasa/> is a static page in `site/` with no build step. `.github/workflows/pages.yml` publishes it to GitHub Pages when a push to `main` changes `site/`, the app icon, or the workflow, and from **Actions > Pages > Run workflow**. The workflow copies `app/src-tauri/icons/icon.svg` into the site, so the logo has one source.
+
+- `index.html` and `style.css` hold the page. The colors follow the app's theme, and the page switches to dark with the system setting.
+- `download.js` asks the GitHub API for the latest release when the page loads, links each download button to its package, and shows the file size. It puts the visitor's platform first. If the request fails, the buttons open the latest release page.
+- `app-light.png` and `app-dark.png` are 2400 by 1600 screenshots of the release build. Retake them when the window changes noticeably.
+
+To preview the site locally, copy `app/src-tauri/icons/icon.svg` into `site/` (Git ignores the copy) and serve the folder, for example with `python -m http.server` from `site/`.
+
+The GitHub Pages terms do not allow a site whose main purpose is commercial transactions, so take payments or donations through a separate service such as GitHub Sponsors.
 
 ## Code signing
 
