@@ -25,7 +25,7 @@ app/
     tauri.conf.json         shared Tauri config
     tauri.<os>.conf.json    per-OS overrides, merged over tauri.conf.json
   package.json              frontend scripts and the Tauri CLI
-crates/                     Rust libraries and the ukurasa CLI (see plan.md)
+crates/                     Rust libraries: core, edit, geom, render, worker (see plan.md)
 docs/                       plan and this document
 Cargo.toml                  workspace members, shared version, dev-profile overrides
 rust-toolchain.toml         Rust channel and components
@@ -127,8 +127,7 @@ To update PDFium:
 |---|---|---|
 | Development app | `pnpm tauri dev` in `app/` | Vite dev server on `localhost:1420` with hot reload, and the Rust code in the dev profile |
 | Release app | `pnpm tauri build` in `app/` | `target/release/ukurasa-app` plus installers in `target/release/bundle/` |
-| Rust workspace | `cargo build --workspace` | Libraries, the app, and the CLI in the dev profile |
-| CLI | `cargo build --release -p ukurasa-cli` | `target/release/ukurasa` |
+| Rust workspace | `cargo build --workspace` | Libraries, the app, and the standalone worker in the dev profile |
 
 - The dev profile compiles `ukurasa-worker`, `pdfium-render`, and the PNG and compression crates at `opt-level = 3` (see the root `Cargo.toml`). Unoptimized rendering runs about 45 times slower.
 - `pnpm tauri build` runs `pnpm build` (Vite writes `app/frontend/dist`), then `cargo build --release`, then the Tauri bundler.

@@ -48,6 +48,8 @@ crates/
   ukurasa-cli     `ukurasa` binary: render, sign, verify, md2pdf, pdf2md, check (tests and power users)
 ```
 
+The repository contains only the crates in use. `ukurasa-sign`, `ukurasa-md`, `ukurasa-import`, and `ukurasa-cli` are created when the phase that needs them starts.
+
 ### Process model and rendering
 
 - PDFium is C++ parsing untrusted input and is not thread-safe. It never runs in the main app process. `ukurasa-worker` processes host PDFium; a crash kills a worker, not the app, and the scheduler restarts it.

@@ -1,8 +1,0 @@
-[package]
-name = "ukurasa-sign"
-description = "PAdES signing, signature verification, and the signature policy engine."
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-
-[dependencies]

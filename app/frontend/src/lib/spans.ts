@@ -6,7 +6,7 @@ export interface Char {
   style: Style;
 }
 
-export const sameStyle = (a: Style, b: Style) =>
+const sameStyle = (a: Style, b: Style) =>
   a.font === b.font &&
   a.face === b.face &&
   a.family === b.family &&

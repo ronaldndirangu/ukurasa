@@ -30,7 +30,7 @@ export type Placed = Item & { edit: TextEdit | SignatureEdit };
 export const isPlaced = (item: Item): item is Placed => item.edit.kind !== "line";
 
 /** A line's new text, drawn over the page until its image shows the change. */
-export interface LinePatch {
+interface LinePatch {
   page: number;
   line: TextLine;
   spans: Span[];

@@ -1,8 +1,0 @@
-[package]
-name = "ukurasa-md"
-description = "Markdown to Typst conversion, PDF export, and the embedded source package."
-version.workspace = true
-edition.workspace = true
-license.workspace = true
-
-[dependencies]

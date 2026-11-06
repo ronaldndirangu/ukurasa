@@ -1,7 +1,7 @@
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
-export interface PageSize {
+interface PageSize {
   width: number;
   height: number;
 }
@@ -169,7 +169,7 @@ export const previewEdits = (doc: number, edits: (LineEdit | TextEdit)[]) =>
 export const setUnsaved = (unsaved: boolean) => invoke<void>("set_unsaved", { unsaved });
 export const signaturePath = (text: string) => invoke<VectorPath>("signature_path", { text });
 
-export type LinkTarget =
+type LinkTarget =
   /** `top` is the destination's distance in points from the top of the page, when known. */
   | { kind: "page"; page: number; top: number | null }
   | { kind: "uri"; uri: string };

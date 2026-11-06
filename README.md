@@ -111,8 +111,6 @@ pnpm tauri dev
 
 PDFium renders pages in a separate worker process (the app executable started with `--ukurasa-worker`), so a malformed PDF cannot crash the window.
 
-The `ukurasa` command-line tool lives in `crates/ukurasa-cli`; run it with `cargo run -p ukurasa-cli -- --help`.
-
 ## License
 
 Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or [MIT license](LICENSE-MIT), at your option.
