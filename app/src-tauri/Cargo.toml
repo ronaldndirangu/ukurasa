@@ -1,0 +1,30 @@
+[package]
+name = "ukurasa-app"
+description = "Ukurasa desktop app: a thin Tauri command layer over the ukurasa crates."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[build-dependencies]
+tauri-build.workspace = true
+
+[dependencies]
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.154"
+tauri.workspace = true
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+ukurasa-core = { version = "0.1.0", path = "../../crates/ukurasa-core" }
+ukurasa-edit = { version = "0.1.0", path = "../../crates/ukurasa-edit" }
+ukurasa-render = { version = "0.1.0", path = "../../crates/ukurasa-render" }
+ukurasa-worker = { version = "0.1.0", path = "../../crates/ukurasa-worker" }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Gdi",
+    "Win32_System_LibraryLoader",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_WindowsAndMessaging",
+] }

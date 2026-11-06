@@ -1,0 +1,24 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "app/src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+clap = { version = "4.5", features = ["derive"] }
+tauri = "2"
+tauri-build = "2"
+
+# Page rendering runs about 45 times slower unoptimized, which makes debug builds unusable.
+[profile.dev.package]
+ukurasa-worker.opt-level = 3
+pdfium-render.opt-level = 3
+png.opt-level = 3
+fdeflate.opt-level = 3
+flate2.opt-level = 3
+miniz_oxide.opt-level = 3
+simd-adler32.opt-level = 3
+crc32fast.opt-level = 3

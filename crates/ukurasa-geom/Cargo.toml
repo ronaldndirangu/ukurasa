@@ -1,0 +1,8 @@
+[package]
+name = "ukurasa-geom"
+description = "Canonical page geometry and transforms (page boxes, /Rotate, /UserUnit)."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]

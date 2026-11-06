@@ -1,0 +1,15 @@
+[package]
+name = "ukurasa-worker"
+description = "Worker process that hosts PDFium for rendering, text extraction, and search indexing."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+pdfium-render = { version = "0.9.5", default-features = false, features = ["pdfium_latest"] }
+png = "0.18.1"
+ukurasa-geom = { version = "0.1.0", path = "../ukurasa-geom" }
+ukurasa-render = { version = "0.1.0", path = "../ukurasa-render" }
+
+[dev-dependencies]
+ukurasa-edit = { version = "0.1.0", path = "../ukurasa-edit" }

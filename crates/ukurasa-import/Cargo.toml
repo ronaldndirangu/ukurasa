@@ -1,0 +1,8 @@
+[package]
+name = "ukurasa-import"
+description = "Best-effort PDF to Markdown import from text and glyph geometry."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]

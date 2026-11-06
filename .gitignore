@@ -1,0 +1,19 @@
+# Rust
+/target/
+
+# Node
+node_modules/
+
+# Frontend build output
+/app/frontend/dist/
+
+# Tauri generated files
+/app/src-tauri/gen/schemas/
+
+# PDFium binaries fetched by app/scripts/fetch-pdfium.mjs
+/app/src-tauri/pdfium/
+
+# Editors and OS
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,17 @@
+[package]
+name = "ukurasa-edit"
+description = "PDF writer for annotations, the AcroForm model, appearance streams, and page operations."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+include = ["src/**", "fonts/**", "Cargo.toml"]
+
+[dependencies]
+lopdf = { version = "0.47", default-features = false, features = ["rayon"] }
+rustybuzz = "0.20"
+serde = { version = "1.0.229", features = ["derive"] }
+thiserror = "2"
+ukurasa-geom = { version = "0.1.0", path = "../ukurasa-geom" }
+
+[dev-dependencies]
+serde_json = "1.0.154"
