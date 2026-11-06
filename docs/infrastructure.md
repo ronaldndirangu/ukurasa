@@ -137,19 +137,29 @@ To update PDFium:
 
 ## Continuous integration
 
-`.github/workflows/ci.yml` runs on every push to `main` and on every pull request. A newer push to the same branch or pull request cancels the run in progress.
+`.github/workflows/ci.yml` runs automatically, but only when there is code to check:
 
-Each job runs on `windows-latest`, `macos-latest` (Apple silicon), and `ubuntu-22.04`, and one failing platform does not cancel the others. The steps are:
+- **Pull requests** run CI when opened, updated, or marked ready for review. Draft pull requests skip it, so open a pull request as a draft and choose **Ready for review** when you want CI.
+- **Pushes to `main`** run CI to keep the Cargo cache current.
+- **Run workflow** on the [Actions tab](https://github.com/ronaldndirangu/ukurasa/actions/workflows/ci.yml), or `gh workflow run ci.yml --ref <branch>`, runs a full build on any branch.
+
+A newer push to the same branch or pull request cancels the run in progress. The workflow has three jobs:
+
+- **Detect changes** lists the changed files: a pull request's files, or everything a push to `main` added. When every file is Markdown, under `docs/` or `site/`, or a license, the build jobs are skipped. Manual runs always build.
+- **Build** runs on `windows-latest`, `macos-latest` (Apple silicon), and `ubuntu-22.04`, and one failing platform does not cancel the others. Each platform runs clippy and the tests because PDFium binaries and window chrome code differ per platform.
+- **All checks** passes when Detect changes succeeds and every build job passes or is skipped. It is the only check the ruleset requires, so docs-only pull requests can merge without a build.
+
+The build steps are:
 
 1. Check out the code.
 2. On Linux, install WebKitGTK and the other Tauri system packages.
 3. Install the Rust toolchain from `rust-toolchain.toml`.
-4. Restore the Cargo cache ([Swatinem/rust-cache](https://github.com/Swatinem/rust-cache)), keyed by `Cargo.lock` and the toolchain.
+4. Restore the Cargo cache ([Swatinem/rust-cache](https://github.com/Swatinem/rust-cache)), keyed by `Cargo.lock` and the toolchain. Only runs on `main` save it, so pull requests cannot evict the cache `main` builds from.
 5. Set up pnpm and Node 22, with the pnpm store cached.
 6. `pnpm install --frozen-lockfile`, which also fetches PDFium.
-7. `pnpm check`: svelte-check for TypeScript and Svelte errors.
-8. `pnpm build`: the production frontend build.
-9. `cargo fmt --all --check`.
+7. On Linux, `pnpm check`: svelte-check for TypeScript and Svelte errors.
+8. `pnpm build`: the production frontend build. Tauri needs it to compile the app crate.
+9. On Linux, `cargo fmt --all --check`.
 10. `cargo clippy --workspace --all-targets --locked -- -D warnings`.
 11. `cargo test --workspace --locked`.
 
@@ -157,17 +167,17 @@ CI does not build installers or publish releases; the [Release workflow](#releas
 
 ### Duration and cost
 
-The first run took about 15 minutes on Windows, 6 on Ubuntu, and 2 on macOS; later runs reuse the Cargo cache. The repository is public, so standard GitHub-hosted runners cost nothing on every platform, for CI and releases alike. A private repository would pay for minutes beyond the plan's included usage, with a macOS minute costing about 10 times a Linux minute.
+The first run took about 15 minutes on Windows, 6 on Ubuntu, and 2 on macOS; later runs reuse the Cargo cache and take about 3 minutes on Windows, 2 on Ubuntu, and 1 on macOS. A build job stops after 30 minutes, and the Linux package step after 10, because a slow Ubuntu mirror once stretched that step to 25 minutes. Choose **Re-run failed jobs** when a timeout fails a run. The repository is public, so standard GitHub-hosted runners cost nothing on every platform, for CI and releases alike. A private repository would pay for minutes beyond the plan's included usage, with a macOS minute costing about 10 times a Linux minute.
 
 ### Protected main
 
 The `Protect main` ruleset (**Settings > Rules > Rulesets**) applies to `main` and has no bypass, so it binds the owner too:
 
 - Every change arrives through a pull request. No approval is required, because GitHub does not let authors approve their own pull requests.
-- The `windows-latest`, `macos-latest`, and `ubuntu-22.04` CI checks must pass before merging.
+- The `All checks` CI check must pass before merging.
 - Force pushes and deleting `main` are blocked.
 
-The required checks match the CI job names. Renaming a job or changing the matrix means updating the ruleset too, or pull requests wait for a check that never reports.
+Requiring only `All checks` lets the build matrix change and docs-only pull requests skip the build without a ruleset update. Renaming the `All checks` job means updating the ruleset too, or pull requests wait for a check that never reports.
 
 ## Releases
 
