@@ -73,7 +73,7 @@ flowchart LR
 - The worker protocol (`crates/ukurasa-render/src/protocol.rs`) sends frames over stdin and stdout: a little-endian `u32` header length, a JSON header, a little-endian `u32` payload length, and the raw payload. Headers are capped at 16 MiB and payloads at 512 MiB.
 - `RenderService` runs one renderer thread with a priority queue (lower values render first), cancels requests for pages that scrolled away, and keeps rendered pages in a 128 MiB PNG cache.
 - Page images reach the webview through the `pdf` custom URI scheme, never through JSON. The frontend builds the URL with `convertFileSrc` (`pdf://localhost/...` on macOS and Linux, `http://pdf.localhost/...` on Windows), encoding the document, page, width, priority, and request ID. `viewer::serve_page` answers it.
-- Tauri commands live in `viewer.rs` (open, recent files, links, render cancellation), `editor.rs` (text lines, fonts, edit previews, save), and `chrome.rs` (Windows title bar).
+- Tauri commands live in `viewer.rs` (open, recent files, links, render cancellation), `editor.rs` (text lines, fonts, edit previews, save), and `chrome.rs` (Windows title bar). `menu.rs` adds Open, Open Recent, Save, and Save As to the macOS menu bar and forwards them to the window as `menu-action` events.
 
 ### Locating PDFium
 

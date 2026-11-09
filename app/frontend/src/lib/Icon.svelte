@@ -17,7 +17,6 @@
     trash: "M4 6h12M8 6V4h4v2M5.5 6l.75 10.5h7.5L14.5 6",
     undo: "M7.5 5 4 8.5 7.5 12M4 8.5h8a4 4 0 0 1 0 8H9",
     redo: "M12.5 5 16 8.5 12.5 12M16 8.5H8a4 4 0 0 0 0 8h3",
-    menu: "M3.5 5.5h13M3.5 10h13M3.5 14.5h13",
   };
 
   export type IconName = keyof typeof PATHS;

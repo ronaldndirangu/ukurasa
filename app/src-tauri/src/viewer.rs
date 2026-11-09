@@ -21,8 +21,8 @@ use ukurasa_render::{
 };
 use ukurasa_worker::{PDFIUM_PATH_ENV, WORKER_FLAG};
 
-use crate::editor;
 use crate::recent::{self, RecentFile};
+use crate::{editor, menu};
 
 pub const SCHEME: &str = "pdf";
 const SESSION_EVENT: &str = "session-changed";
@@ -144,6 +144,7 @@ impl Viewer {
             session.revision += 1;
             (session.clone(), result)
         };
+        menu::show_session(app, snapshot.document.is_some(), &snapshot.recent);
         let _ = app.emit(SESSION_EVENT, snapshot);
         result
     }

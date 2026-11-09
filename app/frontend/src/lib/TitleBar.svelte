@@ -88,9 +88,9 @@
         <Icon name="sidebar" />
       </button>
     {/if}
-    <Menu label="Menu" title="Menu">
+    <Menu label="File" title="">
       {#snippet trigger()}
-        <Icon name="menu" />
+        <span class="file">File</span>
       {/snippet}
       <button role="menuitem" onclick={onopen}>
         <Icon name="open" size={16} />
@@ -274,6 +274,10 @@
 
   .tool:has(.label) {
     padding-right: 0.625rem;
+  }
+
+  .file {
+    padding: 0 0.25rem;
   }
 
   @media (max-width: 960px) {

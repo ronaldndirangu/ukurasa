@@ -12,6 +12,7 @@ use ukurasa_core::{Edit, EditError, Stamp};
 use ukurasa_edit::lopdf::Document;
 use ukurasa_edit::{DocumentFont, LineReport, PageImage, TextLine, VectorPath};
 
+use crate::menu;
 use crate::viewer::{self, Viewer};
 
 const CLOSED: &str = "This document is no longer open.";
@@ -179,6 +180,7 @@ fn by_page(edits: Vec<Edit>) -> BTreeMap<usize, Vec<Edit>> {
 pub fn set_unsaved(app: AppHandle, editor: State<'_, Editor>, unsaved: bool) {
     editor.unsaved.store(unsaved, Ordering::Relaxed);
     app.state::<Viewer>().show_unsaved(&app, unsaved);
+    menu::show_unsaved(&app, unsaved);
 }
 
 #[tauri::command]
