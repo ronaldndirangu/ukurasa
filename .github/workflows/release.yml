@@ -128,6 +128,8 @@ jobs:
 
       - name: Install frontend dependencies and PDFium
         working-directory: app
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: pnpm install --frozen-lockfile
 
       - name: Build installers

@@ -24,6 +24,9 @@ const LIBRARY = {
   linux: "lib/libpdfium.so",
 };
 
+const RETRY_DELAYS_MS = [2000, 4000, 8000];
+const TIMEOUT_MS = 120_000;
+
 const dest = join(dirname(fileURLToPath(import.meta.url)), "..", "src-tauri", "pdfium");
 const stampFile = join(dest, "RELEASE.txt");
 
@@ -49,11 +52,7 @@ async function main() {
 
   const url = `https://github.com/bblanchon/pdfium-binaries/releases/download/${encodeURIComponent(RELEASE)}/${name}`;
   console.log(`pdfium: downloading ${url}`);
-  const response = await fetch(url);
-  if (!response.ok) {
-    throw new Error(`download failed: HTTP ${response.status}`);
-  }
-  const archive = Buffer.from(await response.arrayBuffer());
+  const archive = await download(url);
 
   const actual = createHash("sha256").update(archive).digest("hex");
   if (actual !== sha256) {
@@ -79,6 +78,35 @@ async function main() {
 
   writeFileSync(stampFile, stamp);
   console.log(`pdfium: installed ${RELEASE} into ${dest}`);
+}
+
+/** Retries dropped connections, timeouts, rate limits, and server errors, which are usually brief. */
+async function download(url) {
+  // GitHub limits anonymous downloads more strictly, so CI sends its workflow token.
+  const token = process.env.GITHUB_TOKEN;
+  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  for (let attempt = 0; ; attempt++) {
+    // Zero means no response arrived or its body broke off.
+    let status = 0;
+    let reason;
+    try {
+      const response = await fetch(url, { headers, signal: AbortSignal.timeout(TIMEOUT_MS) });
+      if (response.ok) {
+        return Buffer.from(await response.arrayBuffer());
+      }
+      status = response.status;
+      reason = `HTTP ${status}`;
+    } catch (error) {
+      reason = error.cause?.code ?? error.message;
+    }
+    const retryable = status === 0 || status === 408 || status === 429 || status >= 500;
+    if (!retryable || attempt === RETRY_DELAYS_MS.length) {
+      throw new Error(`download failed: ${reason}`);
+    }
+    const delay = RETRY_DELAYS_MS[attempt];
+    console.warn(`pdfium: download failed (${reason}); retrying in ${delay / 1000} s`);
+    await new Promise((resolve) => setTimeout(resolve, delay));
+  }
 }
 
 function* tarEntries(tar) {

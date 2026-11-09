@@ -113,6 +113,7 @@ Uninstalling leaves this data in place; delete the folders to reset the app. Kee
 
 - Ukurasa uses prebuilt PDFium from [bblanchon/pdfium-binaries](https://github.com/bblanchon/pdfium-binaries). `app/scripts/fetch-pdfium.mjs` pins the release (`chromium/8125`), which must match the PDFium API targeted by the `pdfium_latest` feature of `pdfium-render`.
 - `pnpm install` runs the script as `postinstall`. It picks the archive for Node's platform and architecture (Windows, macOS, and Linux, each x64 or arm64), checks its SHA-256 against the pinned value, extracts the library and its license files into `app/src-tauri/pdfium/`, and writes a `RELEASE.txt` stamp. It skips the download when the stamp already matches.
+- The download makes up to 4 attempts, waiting 2, 4, and 8 seconds between them, when the connection fails, times out after 2 minutes, or GitHub answers 408, 429, or 5xx. Other errors and checksum mismatches fail at once. When `GITHUB_TOKEN` is set, as in CI and release builds, the request is authenticated, because GitHub limits anonymous downloads more strictly. Node drops the token when GitHub redirects to its file host.
 - `pnpm pdfium` downloads again. `UKURASA_SKIP_PDFIUM=1` skips the download, and `UKURASA_PDFIUM_PATH` points the app at a local build.
 - `bundle.resources` in `tauri.conf.json` copies `pdfium/`, licenses included, into every package.
 - The worker's integration test renders real pages, so CI runs `pnpm install` before `cargo test`.
@@ -159,12 +160,14 @@ The build steps are:
 3. Install the Rust toolchain from `rust-toolchain.toml`.
 4. Restore the Cargo cache ([Swatinem/rust-cache](https://github.com/Swatinem/rust-cache)), keyed by `Cargo.lock` and the toolchain. Only runs on `main` save it, so pull requests cannot evict the cache `main` builds from.
 5. Set up pnpm and Node 22, with the pnpm store cached.
-6. `pnpm install --frozen-lockfile`, which also fetches PDFium.
-7. On Linux, `pnpm check`: svelte-check for TypeScript and Svelte errors.
-8. `pnpm build`: the production frontend build. Tauri needs it to compile the app crate.
-9. On Linux, `cargo fmt --all --check`.
-10. `cargo clippy --workspace --all-targets --locked -- -D warnings`.
-11. `cargo test --workspace --locked`.
+6. Restore PDFium from the cache, keyed by the OS, architecture, and `fetch-pdfium.mjs`, which pins the release and checksums.
+7. `pnpm install --frozen-lockfile`, which also fetches PDFium when the cache missed.
+8. On `main`, save PDFium to the cache when it was downloaded. As with Cargo, pull requests only restore it.
+9. On Linux, `pnpm check`: svelte-check for TypeScript and Svelte errors.
+10. `pnpm build`: the production frontend build. Tauri needs it to compile the app crate.
+11. On Linux, `cargo fmt --all --check`.
+12. `cargo clippy --workspace --all-targets --locked -- -D warnings`.
+13. `cargo test --workspace --locked`.
 
 CI does not build installers or publish releases; the [Release workflow](#releases) does.
 
@@ -211,7 +214,7 @@ The `platforms` input picks the runners: `macOS and Linux` (the default), `All`,
 
 If one build fails, choose **Re-run failed jobs** on the run page. The draft stays unpublished until every build passes.
 
-Releases are infrequent, so the workflow skips the Cargo cache and each build starts clean. The workflow creates tags and releases only, so the `main` ruleset does not affect it.
+Releases are infrequent, so the workflow skips the Cargo and PDFium caches and each build starts clean. The workflow creates tags and releases only, so the `main` ruleset does not affect it.
 
 To build a package locally instead, run `pnpm tauri build` in `app/` and attach the files with `gh release upload v0.2.0 <files> --clobber`. Use `gh auth status` to confirm that `gh` uses the account that owns the repository. Version numbers stay at `0.x` while the project is in early development.
 
