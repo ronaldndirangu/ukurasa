@@ -10,7 +10,7 @@ use tauri::{AppHandle, Manager, State, WebviewWindow};
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use ukurasa_core::{Edit, EditError, Stamp};
 use ukurasa_edit::lopdf::Document;
-use ukurasa_edit::{DocumentFont, LineReport, TextLine, VectorPath};
+use ukurasa_edit::{DocumentFont, LineReport, PageImage, TextLine, VectorPath};
 
 use crate::viewer::{self, Viewer};
 
@@ -96,6 +96,20 @@ pub async fn text_lines(app: AppHandle, doc: u64, page: usize) -> Result<Vec<Tex
     .await
 }
 
+/// The pictures on a page of the open document that can be moved, resized, or removed.
+#[tauri::command]
+pub async fn page_images(app: AppHandle, doc: u64, page: usize) -> Result<Vec<PageImage>, String> {
+    blocking(app, move |app| {
+        let viewer = app.state::<Viewer>();
+        app.state::<Editor>().with_source(&viewer, doc, |source| {
+            ukurasa_edit::check_line_editing(&source.document)
+                .and_then(|()| ukurasa_edit::page_images(&source.document, page))
+                .map_err(|error| error.to_string())
+        })
+    })
+    .await
+}
+
 /// The fonts the open document uses for text, offered when styling edited words.
 #[tauri::command]
 pub async fn document_fonts(app: AppHandle, doc: u64) -> Result<Vec<DocumentFont>, String> {
@@ -108,8 +122,8 @@ pub async fn document_fonts(app: AppHandle, doc: u64) -> Result<Vec<DocumentFont
     .await
 }
 
-/// Renders the open document with line and text `edits` applied, replacing the previous
-/// preview. Signatures are left out, since the editor draws them over the page.
+/// Renders the open document with line, text, and picture `edits` applied, replacing the
+/// previous preview. Signatures are left out, since the editor draws them over the page.
 #[tauri::command]
 pub async fn preview_edits(app: AppHandle, doc: u64, edits: Vec<Edit>) -> Result<Preview, String> {
     blocking(app, move |app| {

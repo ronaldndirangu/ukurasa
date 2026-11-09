@@ -8,9 +8,11 @@
     /** CSS pixels per point. */
     scale: number;
     onnavigate: (page: number, top: number | null) => void;
+    /** Lets clicks through to the text and pictures under the links. */
+    bypass?: boolean;
   }
 
-  let { doc, page, scale, onnavigate }: Props = $props();
+  let { doc, page, scale, onnavigate, bypass = false }: Props = $props();
 
   let links = $state.raw<Link[]>([]);
 
@@ -36,7 +38,7 @@
   }
 </script>
 
-<div class="links">
+<div class="links" class:bypass>
   {#each links as link, index (index)}
     <!-- Mouse clicks leave focus on the page so Space keeps scrolling. -->
     <button
@@ -55,9 +57,11 @@
 </div>
 
 <style>
+  /* Above the page's text and pictures, which a plain click on a link follows instead of editing. */
   .links {
     position: absolute;
     inset: 0;
+    z-index: 1;
     pointer-events: none;
   }
 
@@ -69,6 +73,10 @@
     background: transparent;
     cursor: pointer;
     pointer-events: auto;
+  }
+
+  .bypass .link {
+    pointer-events: none;
   }
 
   .link:hover {

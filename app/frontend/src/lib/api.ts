@@ -118,7 +118,28 @@ export interface LineEdit {
   spans: Span[];
 }
 
-export type Edit = TextEdit | SignatureEdit | LineEdit;
+
+/** Moves, resizes, or with null `bounds` removes a picture found by `pageImages`. */
+export interface ImageEdit {
+  kind: "image";
+  page: number;
+  /** Identifies the picture by its drawing operator, as read by `pageImages`. */
+  op: number;
+  /** Where the picture showed when it was read. */
+  original: Rect;
+  bounds: Rect | null;
+}
+
+export type Edit = TextEdit | SignatureEdit | LineEdit | ImageEdit;
+
+/** A picture on a page that can be moved, resized, or removed, positioned like `TextEdit`. */
+export interface Picture {
+  op: number;
+  /** The part of the picture that shows. */
+  bounds: Rect;
+  /** The area the picture can show in. */
+  limits: Rect;
+}
 
 /** A line of the page's original text, positioned like `TextEdit`. */
 export interface TextLine {
@@ -162,9 +183,10 @@ export const saveDocument = (doc: number, edits: Edit[]) =>
 /** Saves a copy with `edits` applied and opens it; resolves to the saved name, or null when cancelled. */
 export const saveCopy = (doc: number, edits: Edit[]) => invoke<string | null>("save_copy", { doc, edits });
 export const textLines = (doc: number, page: number) => invoke<TextLine[]>("text_lines", { doc, page });
+export const pageImages = (doc: number, page: number) => invoke<Picture[]>("page_images", { doc, page });
 export const documentFonts = (doc: number) => invoke<DocumentFont[]>("document_fonts", { doc });
 /** Renders the open document with `edits` applied, replacing the previous preview. */
-export const previewEdits = (doc: number, edits: (LineEdit | TextEdit)[]) =>
+export const previewEdits = (doc: number, edits: (LineEdit | TextEdit | ImageEdit)[]) =>
   invoke<Preview>("preview_edits", { doc, edits });
 export const setUnsaved = (unsaved: boolean) => invoke<void>("set_unsaved", { unsaved });
 export const signaturePath = (text: string) => invoke<VectorPath>("signature_path", { text });

@@ -179,15 +179,6 @@
       <div class="group" role="toolbar" aria-label="Edit" use:roving>
         <button
           class="tool"
-          title="Edit the document's text"
-          aria-pressed={editor.tool === "line"}
-          onclick={() => editor.arm("line")}
-        >
-          <Icon name="editText" />
-          <span class="label">Edit text</span>
-        </button>
-        <button
-          class="tool"
           title="Add text"
           aria-pressed={editor.tool === "text"}
           onclick={() => editor.arm("text")}

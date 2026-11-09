@@ -55,6 +55,8 @@
   let pinned = $state.raw<{ page: number; top: number } | null>(null);
   // Pages re-render only after zooming pauses; until then their current images are scaled.
   let renderZoom = $state(0);
+  // Holding Ctrl or Cmd lets clicks through links to the text and pictures under them.
+  let bypass = $state(false);
 
   const layout: Layout = $derived.by(() => {
     const scale = zoom * PX_PER_PT;
@@ -84,8 +86,9 @@
   const last = $derived(pageAt(scrollTop + viewportHeight));
   const mounted = $derived(range(first, last, OVERSCAN, doc.pages.length));
   const scale = $derived(zoom * PX_PER_PT);
-  // The selected item's page sits above its neighbours so the item's floating bar stays visible.
-  const raised = $derived(editor.get(editor.selected)?.edit.page ?? -1);
+  // The page with the selected item, picture, or open line sits above its neighbours so the
+  // floating bar stays visible.
+  const raised = $derived(editor.selectedPage ?? editor.linePage ?? -1);
   const current = $derived.by(() => {
     if (pinned && Math.abs(scrollTop - pinned.top) < 1) return pinned.page;
     const maxScroll = layout.height - viewportHeight;
@@ -141,8 +144,28 @@
     scrollTop = scroller.scrollTop;
   }
 
+  /** Reads the text and pictures of the page under the pointer, so a click can edit them. */
+  function wake(event: PointerEvent): Element {
+    const target = event.target as Element;
+    const page = target.closest<HTMLElement>("[data-page]");
+    if (page) editor.wake(Number(page.dataset.page));
+    return target;
+  }
+
+  function onpointermove(event: PointerEvent) {
+    bypass = event.ctrlKey || event.metaKey;
+    wake(event);
+  }
+
   function onpointerdown(event: PointerEvent) {
-    if (!event.defaultPrevented && !(event.target as Element).closest("[data-edit]")) editor.select(null);
+    const target = wake(event);
+    if (event.defaultPrevented || target.closest("[data-edit]")) return;
+    editor.select(null);
+    if (editor.tool === "none" && target.closest("[data-page]") && !target.closest(".link")) editor.explainLines();
+  }
+
+  function modifiers(event: KeyboardEvent) {
+    bypass = event.ctrlKey || event.metaKey;
   }
 
   export function goToPage(index: number) {
@@ -240,6 +263,8 @@
   }
 </script>
 
+<svelte:window onkeydown={modifiers} onkeyup={modifiers} onblur={() => (bypass = false)} />
+
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
   class="scroller"
@@ -251,6 +276,7 @@
   bind:clientHeight={viewportHeight}
   onscroll={() => (scrollTop = scroller.scrollTop)}
   {onpointerdown}
+  {onpointermove}
 >
   <div class="content" style:width="{layout.width}px" style:height="{layout.height}px">
     {#each mounted as index (index)}
@@ -260,6 +286,7 @@
         class:raised={index === raised}
         role="group"
         aria-label="Page {index + 1}"
+        data-page={index}
         style:top="{layout.tops[index]}px"
         style:left="{leftOf(layout, index)}px"
         style:width="{layout.widths[index]}px"
@@ -276,7 +303,7 @@
           onshow={(revision) => editor.painted(index, revision)}
         />
         {#if editor.tool === "none"}
-          <LinkLayer doc={doc.id} page={index} {scale} onnavigate={goToPoint} />
+          <LinkLayer doc={doc.id} page={index} {scale} {bypass} onnavigate={goToPoint} />
         {/if}
         <EditLayer page={index} width={doc.pages[index].width} height={doc.pages[index].height} {scale} />
       </div>
@@ -292,6 +319,7 @@
     scrollbar-gutter: stable;
     background: var(--canvas);
     outline: none;
+    isolation: isolate;
   }
 
   .content {
@@ -303,7 +331,8 @@
     box-shadow: var(--page-shadow);
   }
 
+  /* Above the links and placed items of the pages around it. */
   .raised {
-    z-index: 1;
+    z-index: 3;
   }
 </style>

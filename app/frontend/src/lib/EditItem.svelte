@@ -205,8 +205,10 @@
 </div>
 
 <style>
+  /* Above links and the page's own text and pictures. */
   .item {
     position: absolute;
+    z-index: 2;
     pointer-events: auto;
     cursor: move;
     user-select: none;

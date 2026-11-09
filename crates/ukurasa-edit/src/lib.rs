@@ -1,8 +1,10 @@
 //! PDF writer for annotations, the AcroForm model, appearance streams, and page operations.
 //!
 //! Edits are saved as an incremental update: the original bytes stay intact and the new and
-//! changed objects are appended after them.
+//! changed objects are appended after them. Removing a picture rewrites the whole file instead,
+//! so no earlier revision keeps it.
 
+mod images;
 mod lines;
 mod path;
 mod script;
@@ -12,6 +14,7 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fmt::Write;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+pub use images::{Bounds, ImageEdit, PageImage, page_images};
 pub use lines::{DocumentFont, LineEdit, LineReport, Span, TextLine, document_fonts, text_lines};
 pub use lopdf;
 use lopdf::{
@@ -30,6 +33,7 @@ pub enum Edit {
     Text(TextBox),
     Signature(Signature),
     Line(LineEdit),
+    Image(ImageEdit),
 }
 
 impl Edit {
@@ -38,6 +42,7 @@ impl Edit {
             Edit::Text(t) => t.page,
             Edit::Signature(s) => s.page,
             Edit::Line(l) => l.page,
+            Edit::Image(i) => i.page,
         }
     }
 }
@@ -96,12 +101,18 @@ pub enum EditError {
     RestrictedContent,
     #[error("This encrypted PDF is damaged, so edits can't be saved")]
     DamagedEncrypted,
+    #[error("Ukurasa can't edit PDFs encrypted this way yet")]
+    UnsupportedEncryption,
     #[error("Page {0} doesn't exist")]
     NoPage(usize),
     #[error("Neither the text's font nor the fallback font has these characters: {0}")]
     UnsupportedLineText(String),
     #[error("The text on page {0} no longer matches this edit")]
     StaleText(usize),
+    #[error("The picture on page {0} no longer matches this edit")]
+    StaleImage(usize),
+    #[error("Ukurasa can't remove pictures from an encrypted PDF yet")]
+    EncryptedImageRemoval,
     #[error("Ukurasa can't change the text on this page without losing some of its content")]
     UnsafeContent,
     #[error("This page's content is too large to edit")]
@@ -118,11 +129,13 @@ pub enum EditError {
     Verify,
 }
 
-/// Applies `edits` to the PDF in `source` and returns the bytes of the saved file.
+/// Applies `edits` to the PDF in `source` and returns the bytes of the saved file. When the
+/// edits remove a picture, the file is rewritten without the objects nothing uses anymore, so
+/// the picture can't be recovered from an earlier revision.
 pub fn apply(source: &[u8], edits: &[Edit]) -> Result<Vec<u8>, EditError> {
     let doc = Document::load_mem(source)?;
     let pages = doc.get_pages().len();
-    let applied = apply_document(source, doc, edits)?;
+    let applied = apply_edits(source, doc, edits, removes_images(edits))?;
     match Document::load_mem(&applied.bytes) {
         Ok(saved) if saved.get_pages().len() == pages => Ok(applied.bytes),
         _ => Err(EditError::Verify),
@@ -136,23 +149,44 @@ pub struct Applied {
     pub lines: Vec<LineReport>,
 }
 
-/// Applies `edits` to `doc`, loaded from `source`, without verifying the output.
+/// Applies `edits` to `doc`, loaded from `source`, without verifying the output. The result is
+/// an incremental update, quick to preview, that keeps the pictures the edits remove in the
+/// original revision.
 pub fn apply_document(source: &[u8], doc: Document, edits: &[Edit]) -> Result<Applied, EditError> {
-    type PageEdits<'a> = (Vec<&'a LineEdit>, Vec<&'a TextBox>);
-    let mut by_page: BTreeMap<usize, PageEdits> = BTreeMap::new();
+    apply_edits(source, doc, edits, false)
+}
+
+fn removes_images(edits: &[Edit]) -> bool {
+    edits
+        .iter()
+        .any(|edit| matches!(edit, Edit::Image(ImageEdit { bounds: None, .. })))
+}
+
+/// Applies `edits`, and with `purge` rewrites the file without the objects nothing uses.
+fn apply_edits(
+    source: &[u8],
+    doc: Document,
+    edits: &[Edit],
+    purge: bool,
+) -> Result<Applied, EditError> {
+    let mut by_page: BTreeMap<usize, lines::PageEdits> = BTreeMap::new();
     for edit in edits {
         match edit {
-            Edit::Line(line) => by_page.entry(line.page).or_default().0.push(line),
+            Edit::Line(line) => by_page.entry(line.page).or_default().lines.push(line),
             Edit::Text(text) => {
                 if check_text(text)? {
-                    by_page.entry(text.page).or_default().1.push(text);
+                    by_page.entry(text.page).or_default().texts.push(text);
                 }
             }
+            Edit::Image(image) => by_page.entry(image.page).or_default().images.push(image),
             Edit::Signature(_) => {}
         }
     }
     let signatures = edits.iter().any(|e| matches!(e, Edit::Signature(_)));
     check_encryption(&doc, !by_page.is_empty(), signatures)?;
+    if removes_images(edits) && doc.encryption_state.is_some() {
+        return Err(EditError::EncryptedImageRemoval);
+    }
     let pages: Vec<ObjectId> = doc.get_pages().into_values().collect();
     if let Some(edit) = edits.iter().find(|e| e.page() >= pages.len()) {
         return Err(EditError::NoPage(edit.page() + 1));
@@ -161,17 +195,18 @@ pub fn apply_document(source: &[u8], doc: Document, edits: &[Edit]) -> Result<Ap
         doc: &doc,
         objects: BTreeMap::new(),
         max_id: doc.max_id,
+        removed: HashSet::new(),
     };
     let mut lines = Vec::new();
     let mut standard_fonts = HashMap::new();
-    for (&page, (line_edits, texts)) in &by_page {
+    for (&page, page_edits) in &by_page {
         lines.extend(lines::apply_page(
             &mut changes,
             &pages,
             page,
-            line_edits,
-            texts,
+            page_edits,
             &mut standard_fonts,
+            purge,
         )?);
     }
     let now = SystemTime::now()
@@ -185,8 +220,13 @@ pub fn apply_document(source: &[u8], doc: Document, edits: &[Edit]) -> Result<Ap
         let name = format!("ukurasa-{}-{index}", now.as_nanos());
         changes.add_annotation(pages[signature.page], annotation, &name, now.as_secs())?;
     }
-    let (objects, max_id) = (changes.objects, changes.max_id);
-    let bytes = write(source, doc, objects, max_id)?;
+    let Changes {
+        objects,
+        max_id,
+        removed,
+        ..
+    } = changes;
+    let bytes = write(source, doc, objects, max_id, purge.then_some(&removed))?;
     Ok(Applied { bytes, lines })
 }
 
@@ -222,6 +262,10 @@ fn check_encryption(doc: &Document, content: bool, annotations: bool) -> Result<
         return Err(EditError::PasswordRequired);
     }
     let Some(state) = &doc.encryption_state else {
+        // lopdf reads only an `/Encrypt` reference; with a direct dictionary it loads no objects.
+        if doc.trailer.has(b"Encrypt") {
+            return Err(EditError::UnsupportedEncryption);
+        }
         return Ok(());
     };
     if content && !state.permissions().contains(Permissions::MODIFIABLE) {
@@ -416,6 +460,8 @@ struct Changes<'a> {
     doc: &'a Document,
     objects: BTreeMap<ObjectId, Object>,
     max_id: u32,
+    /// The XObjects of the pictures the edits take off a page.
+    removed: HashSet<ObjectId>,
 }
 
 impl Changes<'_> {
@@ -492,11 +538,15 @@ impl Changes<'_> {
     }
 }
 
+/// Writes `objects` into `doc` as an incremental update, or rewrites the whole file when its
+/// cross-reference chain is damaged or `purge` asks to drop the objects nothing uses, including
+/// the pictures it lists that no page draws anymore.
 fn write(
     source: &[u8],
     mut doc: Document,
     objects: BTreeMap<ObjectId, Object>,
     max_id: u32,
+    purge: Option<&HashSet<ObjectId>>,
 ) -> Result<Vec<u8>, EditError> {
     let mut trailer = Dictionary::new();
     for key in [b"Root".as_slice(), b"Info", b"ID"] {
@@ -505,10 +555,14 @@ fn write(
         }
     }
     let mut out = Vec::with_capacity(source.len() + 64 * 1024);
-    if needs_rewrite(&doc) {
+    if purge.is_some() || needs_rewrite(&doc) {
         doc.trailer = trailer;
         doc.objects.extend(objects);
         doc.max_id = max_id;
+        if let Some(removed) = purge {
+            images::forget(&mut doc, removed);
+            doc.prune_objects();
+        }
         doc.save_to(&mut out)?;
     } else {
         let mut incremental = IncrementalDocument::create_from(source.to_vec(), doc);

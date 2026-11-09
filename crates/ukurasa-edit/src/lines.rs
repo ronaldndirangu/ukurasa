@@ -3,7 +3,7 @@
 //! other operator on the page as it was.
 
 mod faces;
-mod read;
+pub(crate) mod read;
 mod write;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -12,6 +12,7 @@ use lopdf::content::{Content, Operation};
 use lopdf::{Document, Object, ObjectId, Stream, dictionary};
 use serde::{Deserialize, Serialize};
 
+use crate::images::{self, ImageEdit};
 use crate::standard::{Family, Standard};
 use crate::{Changes, EditError, TextBox};
 use faces::{Faces, load_font, page_fonts};
@@ -96,7 +97,7 @@ pub struct DocumentFont {
     pub family: Family,
 }
 
-fn page_id(doc: &Document, page: usize) -> Result<ObjectId, EditError> {
+pub(crate) fn page_id(doc: &Document, page: usize) -> Result<ObjectId, EditError> {
     u32::try_from(page + 1)
         .ok()
         .and_then(|number| doc.get_pages().get(&number).copied())
@@ -151,16 +152,30 @@ pub(crate) fn check_spans(spans: &[Span]) -> Result<(), EditError> {
     }
 }
 
-/// Rewrites the lines `edits` change on page `index`, draws `texts` on it, and returns a report
-/// for each changed line.
+/// The edits to one page.
+#[derive(Default)]
+pub(crate) struct PageEdits<'a> {
+    pub lines: Vec<&'a LineEdit>,
+    pub texts: Vec<&'a TextBox>,
+    pub images: Vec<&'a ImageEdit>,
+}
+
+/// Rewrites the lines and pictures `edits` change on page `index`, draws its added text, and
+/// returns a report for each changed line. With `purge`, the page stops naming the pictures it
+/// no longer draws, so the rewritten file can leave them out.
 pub(crate) fn apply_page(
     changes: &mut Changes,
     pages: &[ObjectId],
     index: usize,
-    edits: &[&LineEdit],
-    texts: &[&TextBox],
+    edits: &PageEdits,
     standard: &mut HashMap<Standard, ObjectId>,
+    purge: bool,
 ) -> Result<Vec<LineReport>, EditError> {
+    let PageEdits {
+        lines: edits,
+        texts,
+        images,
+    } = edits;
     for edit in edits {
         check_spans(&edit.spans)?;
     }
@@ -188,13 +203,19 @@ pub(crate) fn apply_page(
             targets.push((*edit, line));
         }
     }
-    if targets.is_empty() && texts.is_empty() {
+    if targets.is_empty() && texts.is_empty() && images.is_empty() {
         return Ok(Vec::new());
     }
 
     let mut scan = Scan::new(doc, page_id, neighbors(pages, index), observed);
     let mut faces = Faces::new(doc, pages, page_id, fonts, ids);
     let mut replaced: BTreeMap<usize, Vec<Operation>> = BTreeMap::new();
+    let (pictures, removed) = images::edit_images(doc, page_id, &ops, images, index)?;
+    for (op, replacement) in pictures {
+        if replaced.insert(op, replacement).is_some() {
+            return Err(EditError::Invalid("two edits change the same picture"));
+        }
+    }
     let mut underlines = Vec::new();
     let mut reports = Vec::new();
     for (edit, line) in targets {
@@ -218,6 +239,7 @@ pub(crate) fn apply_page(
         added.extend(draw_text(text, &geometry, &mut faces, &mut scan)?);
     }
 
+    let mut unused = Vec::new();
     let contents = match content_streams(doc, page_id) {
         // Added text alone goes in a stream of its own, after the page's streams.
         Some(streams) if replaced.is_empty() => {
@@ -245,6 +267,13 @@ pub(crate) fn apply_page(
                 operations.extend(underlines);
                 operations.extend(added);
             }
+            if purge {
+                let drawn = images::drawn_names(&operations);
+                unused.extend(removed.into_iter().filter(|name| !drawn.contains(name)));
+                changes
+                    .removed
+                    .extend(images::xobject_ids(doc, page_id, &unused));
+            }
             Object::Reference(changes.add(content_stream(operations)?)?)
         }
     };
@@ -252,6 +281,13 @@ pub(crate) fn apply_page(
         .modify(page_id)?
         .as_dict_mut()?
         .set("Contents", contents);
+    if !unused.is_empty() {
+        update_resources(changes, page_id, b"XObject", |xobjects| {
+            for name in &unused {
+                xobjects.remove(name);
+            }
+        })?;
+    }
 
     for (key, added) in faces.into_added() {
         let font = match added {
@@ -265,7 +301,7 @@ pub(crate) fn apply_page(
                 }
             },
         };
-        add_font(changes, page_id, &key, font)?;
+        update_resources(changes, page_id, b"Font", |fonts| fonts.set(key, font))?;
     }
     Ok(reports)
 }
@@ -287,13 +323,13 @@ fn content_stream(operations: Vec<Operation>) -> Result<Stream, EditError> {
     Ok(stream)
 }
 
-/// Adds font `font` to the page's resources as `key`. Other pages may share the resources and
-/// font dictionaries the page has, so the page gets its own copies.
-fn add_font(
+/// Changes the page's resources of kind `category`, such as `Font`. Other pages may share the
+/// resources and the dictionaries in them, so the page gets its own copies.
+fn update_resources(
     changes: &mut Changes,
     page_id: ObjectId,
-    key: &[u8],
-    font: ObjectId,
+    category: &[u8],
+    change: impl FnOnce(&mut lopdf::Dictionary),
 ) -> Result<(), EditError> {
     let doc = changes.doc;
     let current = changes
@@ -310,13 +346,13 @@ fn add_font(
             .cloned()
             .unwrap_or_default(),
     };
-    let mut fonts = match resources.get(b"Font") {
-        Ok(Object::Dictionary(fonts)) => fonts.clone(),
+    let mut entries = match resources.get(category) {
+        Ok(Object::Dictionary(entries)) => entries.clone(),
         Ok(&Object::Reference(id)) => doc.get_dictionary(id).cloned().unwrap_or_default(),
         _ => lopdf::Dictionary::new(),
     };
-    fonts.set(key, font);
-    resources.set("Font", fonts);
+    change(&mut entries);
+    resources.set(category, entries);
     changes
         .modify(page_id)?
         .as_dict_mut()?
