@@ -33,7 +33,7 @@ The installers are not code signed yet, so the first launch needs one extra step
 
 ### Reading
 
-- Open a PDF with **Open** (Ctrl+O), by dropping it on the window, from the recent files list, or by passing its path on the command line.
+- Open a PDF with **Open** (Ctrl+O) in the **File** menu at the left of the title bar (the menu bar on macOS), by dropping it on the window, from the recent files list, or by passing its path on the command line.
 - The sidebar shows page thumbnails and the document outline. Toggle it with the button at the left of the title bar.
 - Zoom with Ctrl+= and Ctrl+-, or Ctrl+scroll. Ctrl+0 sets 100%; the zoom menu also offers fit width, fit page, and presets.
 - Type a page number in the page controls at the bottom right and press Enter to jump to it.

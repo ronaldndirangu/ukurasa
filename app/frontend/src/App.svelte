@@ -4,6 +4,7 @@
   import {
     forgetRecent,
     getSession,
+    onMenuAction,
     onSession,
     openDialog,
     openPath,
@@ -12,6 +13,7 @@
     setUnsaved,
     type Edit,
     type Fit,
+    type MenuAction,
     type Session,
   } from "./lib/api";
   import { editor, isPlaced } from "./lib/edits.svelte";
@@ -102,6 +104,7 @@
   onMount(() => {
     const unlisten = [
       onSession(apply),
+      onMenuAction(choose),
       getCurrentWebview().onDragDropEvent(({ payload }) => {
         dragging = payload.type === "enter" || payload.type === "over";
       }),
@@ -135,6 +138,25 @@
   }
 
   const goTo = (index: number) => viewer?.goToPage(index);
+
+  /** Acts on the menu bar like the matching shortcut, so nothing happens behind the signature dialog. */
+  function choose(choice: MenuAction) {
+    if (signing) return;
+    switch (choice.action) {
+      case "open":
+        openDialog();
+        break;
+      case "open-recent":
+        openPath(choice.path);
+        break;
+      case "save":
+        save(false);
+        break;
+      case "save-as":
+        save(true);
+        break;
+    }
+  }
 
   /** Saves over the open file when `copy` is false, otherwise asks where to save a copy. */
   async function save(copy: boolean) {

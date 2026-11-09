@@ -3,6 +3,7 @@
 
 mod chrome;
 mod editor;
+mod menu;
 mod recent;
 mod viewer;
 
@@ -41,6 +42,7 @@ fn main() -> ExitCode {
             editor::preview_edits,
             chrome::set_maximize_button,
         ])
+        .on_menu_event(menu::handle)
         .on_window_event(|window, event| match event {
             WindowEvent::DragDrop(DragDropEvent::Drop { paths, .. }) => {
                 viewer::open_first_pdf(window.app_handle(), paths);
@@ -58,6 +60,10 @@ fn main() -> ExitCode {
         .setup(|app| {
             app.manage(viewer::Viewer::new(app.handle())?);
             app.manage(editor::Editor::default());
+            // Windows and Linux keep the File menu in the title bar only.
+            if cfg!(target_os = "macos") {
+                menu::install(app.handle())?;
+            }
             if let Some(window) = app.get_webview_window(viewer::MAIN_WINDOW) {
                 chrome::attach(&window);
             }

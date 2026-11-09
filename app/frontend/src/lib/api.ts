@@ -53,6 +53,16 @@ export const forgetRecent = (path: string) => invoke<void>("forget_recent", { pa
 export const onSession = (handler: (session: Session) => void): Promise<UnlistenFn> =>
   listen<Session>("session-changed", (event) => handler(event.payload));
 
+/** A choice from the File menu in the macOS menu bar. */
+export type MenuAction =
+  | { action: "open" }
+  | { action: "open-recent"; path: string }
+  | { action: "save" }
+  | { action: "save-as" };
+
+export const onMenuAction = (handler: (action: MenuAction) => void): Promise<UnlistenFn> =>
+  listen<MenuAction>("menu-action", (event) => handler(event.payload));
+
 export type Color = [number, number, number];
 
 /** An outline in its own coordinate space, with y growing downward. */
