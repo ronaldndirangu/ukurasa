@@ -36,6 +36,7 @@ fn main() -> ExitCode {
             editor::set_unsaved,
             editor::signature_path,
             editor::text_lines,
+            editor::page_images,
             editor::document_fonts,
             editor::preview_edits,
             chrome::set_maximize_button,

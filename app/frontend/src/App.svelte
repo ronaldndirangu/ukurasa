@@ -65,8 +65,8 @@
       ? "Click on a page to add text"
       : editor.tool === "sign"
         ? "Click on a page to place your signature"
-        : editor.tool === "line"
-          ? "Click any line of text to change it. Select words to style them, Enter finishes"
+        : editor.picture !== null
+          ? "Drag the picture to move it, or its corner to resize it"
           : null,
   );
 

@@ -178,6 +178,25 @@ fn keeps_the_encryption_of_encrypted_sources() {
 }
 
 #[test]
+fn explains_encryption_it_cannot_read() {
+    let mut doc = sample(&[(0, None)]);
+    doc.trailer.set(
+        "Encrypt",
+        dictionary! { "Filter" => "Standard", "V" => 4, "R" => 4 },
+    );
+    let source = save(&mut doc);
+    let loaded = Document::load_mem(&source).unwrap();
+    assert!(matches!(
+        check_line_editing(&loaded),
+        Err(EditError::UnsupportedEncryption)
+    ));
+    assert!(matches!(
+        apply(&source, &[signature(0, 10.0, 10.0, 100.0, 40.0)]),
+        Err(EditError::UnsupportedEncryption)
+    ));
+}
+
+#[test]
 fn refuses_when_the_owner_restricts_annotations() {
     let source = encrypted(Permissions::PRINTABLE | Permissions::MODIFIABLE, false);
     assert!(matches!(
@@ -287,7 +306,14 @@ fn tells_which_edits_break_existing_signatures() {
     assert!(!is_signed(&Document::load_mem(&unsigned).unwrap()));
     let stamp = [signature(0, 10.0, 10.0, 50.0, 20.0)];
     let content = [text(0, "Changed")];
+    let picture = [Edit::Image(ImageEdit {
+        page: 0,
+        op: 0,
+        original: bounds(0.0, 0.0, 1.0, 1.0),
+        bounds: Some(bounds(5.0, 5.0, 1.0, 1.0)),
+    })];
     assert!(breaks_signatures(&signed, &content).unwrap());
+    assert!(breaks_signatures(&signed, &picture).unwrap());
     assert!(!breaks_signatures(&signed, &stamp).unwrap());
     assert!(!breaks_signatures(&signed, &[]).unwrap());
     assert!(!breaks_signatures(&unsigned, &content).unwrap());
@@ -1302,4 +1328,477 @@ fn draws_added_text_upright_on_rotated_pages() {
             lines[0].baseline
         );
     }
+}
+
+/// A one-page PDF that draws `content` with Helvetica as `/F1`, `images` 2 by 2 gray images as
+/// `/Im1`, `/Im2`, and so on, each filled with its number, and a form as `/Fm1`.
+fn picture_page(rotate: i64, content: &str, images: u8) -> Vec<u8> {
+    let mut doc = sample(&[(rotate, None)]);
+    let page_id = doc.get_pages()[&1];
+    let mut xobjects = Dictionary::new();
+    for i in 1..=images {
+        xobjects.set(format!("Im{i}"), gray_image(&mut doc, i));
+    }
+    let form = doc.add_object(Stream::new(
+        dictionary! {
+            "Type" => "XObject",
+            "Subtype" => "Form",
+            "BBox" => vec![0.into(), 0.into(), 10.into(), 10.into()],
+        },
+        b"0 0 10 10 re f".to_vec(),
+    ));
+    xobjects.set("Fm1", form);
+    let font = simple_font("Helvetica", false)(&mut doc);
+    let content = doc.add_object(Stream::new(dictionary! {}, content.as_bytes().to_vec()));
+    let page = doc.get_dictionary_mut(page_id).unwrap();
+    page.set("Contents", content);
+    page.set(
+        "Resources",
+        dictionary! { "Font" => dictionary! { "F1" => font }, "XObject" => xobjects },
+    );
+    save(&mut doc)
+}
+
+/// A 2 by 2 gray image filled with `fill`.
+fn gray_image(doc: &mut Document, fill: u8) -> ObjectId {
+    doc.add_object(Stream::new(
+        dictionary! {
+            "Type" => "XObject",
+            "Subtype" => "Image",
+            "Width" => 2,
+            "Height" => 2,
+            "ColorSpace" => "DeviceGray",
+            "BitsPerComponent" => 8,
+        },
+        vec![fill; 4],
+    ))
+}
+
+/// A PDF whose pages draw `contents` from one set of resources with images `/Im1` and `/Im2`
+/// and a form `/Fm1` without resources of its own that draws `form`. The pages share the
+/// resources, or with `inherit` take them from the page tree.
+fn shared_pictures(contents: &[&str], form: &str, inherit: bool) -> Vec<u8> {
+    let mut doc = sample(&vec![(0, None); contents.len()]);
+    let mut xobjects = Dictionary::new();
+    for i in 1..=2 {
+        xobjects.set(format!("Im{i}"), gray_image(&mut doc, i));
+    }
+    let form = doc.add_object(Stream::new(
+        dictionary! {
+            "Type" => "XObject",
+            "Subtype" => "Form",
+            "BBox" => vec![0.into(), 0.into(), 10.into(), 10.into()],
+        },
+        form.as_bytes().to_vec(),
+    ));
+    xobjects.set("Fm1", form);
+    let pages = doc.get_pages();
+    for (&page_id, content) in pages.values().zip(contents) {
+        let content = doc.add_object(Stream::new(dictionary! {}, content.as_bytes().to_vec()));
+        doc.get_dictionary_mut(page_id)
+            .unwrap()
+            .set("Contents", content);
+    }
+    if inherit {
+        let xobjects = doc.add_object(xobjects);
+        let root = doc
+            .catalog()
+            .unwrap()
+            .get(b"Pages")
+            .unwrap()
+            .as_reference()
+            .unwrap();
+        doc.get_dictionary_mut(root)
+            .unwrap()
+            .set("Resources", dictionary! { "XObject" => xobjects });
+    } else {
+        let resources = doc.add_object(dictionary! { "XObject" => xobjects });
+        for &page_id in pages.values() {
+            doc.get_dictionary_mut(page_id)
+                .unwrap()
+                .set("Resources", resources);
+        }
+    }
+    save(&mut doc)
+}
+
+fn images_of(source: &[u8]) -> Vec<PageImage> {
+    page_images(&Document::load_mem(source).unwrap(), 0).unwrap()
+}
+
+fn bounds(x: f64, y: f64, width: f64, height: f64) -> Bounds {
+    Bounds {
+        x,
+        y,
+        width,
+        height,
+    }
+}
+
+fn near_bounds(a: Bounds, b: Bounds) -> bool {
+    near(a.x, b.x) && near(a.y, b.y) && near(a.width, b.width) && near(a.height, b.height)
+}
+
+fn image_edit(image: &PageImage, to: Option<Bounds>) -> Edit {
+    Edit::Image(ImageEdit {
+        page: 0,
+        op: image.op,
+        original: image.bounds,
+        bounds: to,
+    })
+}
+
+/// The image XObjects in the saved file, by the number they are filled with.
+fn image_objects(source: &[u8]) -> Vec<u8> {
+    let doc = Document::load_mem(source).unwrap();
+    let mut images: Vec<u8> = doc
+        .objects
+        .values()
+        .filter_map(|o| o.as_stream().ok())
+        .filter(|s| s.dict.get(b"Subtype").and_then(Object::as_name).ok() == Some(b"Image"))
+        .map(|s| s.content[0])
+        .collect();
+    images.sort();
+    images
+}
+
+#[test]
+fn lists_pictures_but_not_backgrounds_or_forms() {
+    let source = picture_page(
+        0,
+        "q 612 0 0 792 0 0 cm /Im2 Do Q /Fm1 Do q 100 0 0 50 72 642 cm /Im1 Do Q \
+         q 20 0 0 20 300 300 cm BI /W 2 /H 2 /CS /G /BPC 8 ID abcd EI Q",
+        2,
+    );
+    let images = images_of(&source);
+    assert_eq!(images.len(), 2, "{images:?}");
+    assert_eq!(images[0].op, 7);
+    assert!(near_bounds(
+        images[0].bounds,
+        bounds(72.0, 100.0, 100.0, 50.0)
+    ));
+    assert!(near_bounds(
+        images[0].limits,
+        bounds(0.0, 0.0, 612.0, 792.0)
+    ));
+    assert!(near_bounds(
+        images[1].bounds,
+        bounds(300.0, 472.0, 20.0, 20.0)
+    ));
+}
+
+#[test]
+fn lists_moves_and_removes_figures() {
+    let mut doc = Document::load_mem(&picture_page(0, "q 1 0 0 1 72 600 cm /Fg1 Do Q", 0)).unwrap();
+    let image = doc.add_object(Stream::new(
+        dictionary! {
+            "Type" => "XObject",
+            "Subtype" => "Image",
+            "Width" => 2,
+            "Height" => 2,
+            "ColorSpace" => "DeviceGray",
+            "BitsPerComponent" => 8,
+        },
+        vec![7; 4],
+    ));
+    let figure = doc.add_object(Stream::new(
+        dictionary! {
+            "Type" => "XObject",
+            "Subtype" => "Form",
+            "BBox" => vec![0.into(), 0.into(), 20.into(), 10.into()],
+            "Matrix" => vec![2.into(), 0.into(), 0.into(), 2.into(), 0.into(), 0.into()],
+            "Resources" => dictionary! { "XObject" => dictionary! { "Im" => image } },
+        },
+        b"q 20 0 0 10 0 0 cm /Im Do Q".to_vec(),
+    ));
+    let page_id = doc.get_pages()[&1];
+    let page = doc.get_dictionary_mut(page_id).unwrap();
+    let resources = page.get_mut(b"Resources").unwrap().as_dict_mut().unwrap();
+    let xobjects = resources
+        .get_mut(b"XObject")
+        .unwrap()
+        .as_dict_mut()
+        .unwrap();
+    xobjects.set("Fg1", figure);
+    let source = save(&mut doc);
+
+    let images = images_of(&source);
+    assert_eq!(images.len(), 1, "{images:?}");
+    assert_eq!(images[0].op, 2);
+    assert!(near_bounds(
+        images[0].bounds,
+        bounds(72.0, 172.0, 40.0, 20.0)
+    ));
+
+    let to = bounds(100.0, 300.0, 80.0, 40.0);
+    let moved = images_of(&apply(&source, &[image_edit(&images[0], Some(to))]).unwrap());
+    assert!(near_bounds(moved[0].bounds, to), "{moved:?}");
+
+    let removed = apply(&source, &[image_edit(&images[0], None)]).unwrap();
+    assert!(images_of(&removed).is_empty());
+    assert!(image_objects(&removed).is_empty());
+    let figures = Document::load_mem(&removed)
+        .unwrap()
+        .objects
+        .values()
+        .filter_map(|o| o.as_stream().ok())
+        .filter(|s| s.dict.has(b"Matrix"))
+        .count();
+    assert_eq!(figures, 0);
+}
+
+#[test]
+fn moves_and_resizes_pictures() {
+    for rotate in [0, 90, 180, 270] {
+        let source = picture_page(
+            rotate,
+            "q 100 0 0 50 72 642 cm /Im1 Do Q 2 0 0 2 0 0 cm q 10 0 0 10 200 200 cm \
+             BI /W 2 /H 2 /CS /G /BPC 8 ID abcd EI Q",
+            1,
+        );
+        let images = images_of(&source);
+        let moved = bounds(
+            images[0].bounds.x + 30.0,
+            images[0].bounds.y + 40.0,
+            50.0,
+            25.0,
+        );
+        let output = apply(
+            &source,
+            &[
+                image_edit(&images[0], Some(moved)),
+                image_edit(&images[1], Some(bounds(10.0, 20.0, 60.0, 60.0))),
+            ],
+        )
+        .unwrap();
+        let after = images_of(&output);
+        assert_eq!(after.len(), 2, "{rotate}: {after:?}");
+        assert!(near_bounds(after[0].bounds, moved), "{rotate}: {after:?}");
+        assert!(
+            near_bounds(after[1].bounds, bounds(10.0, 20.0, 60.0, 60.0)),
+            "{rotate}: {after:?}"
+        );
+        assert_eq!(image_objects(&output), [1]);
+    }
+}
+
+#[test]
+fn moves_the_clipping_a_picture_group_sets_with_it() {
+    let source = picture_page(
+        0,
+        "q 72 642 50 50 re W n q 100 0 0 50 72 642 cm /Im1 Do Q Q 0 0 m 10 10 l S",
+        1,
+    );
+    let image = &images_of(&source)[0];
+    assert_eq!(image.op, 6);
+    assert!(near_bounds(image.bounds, bounds(72.0, 100.0, 50.0, 50.0)));
+    let moved = bounds(272.0, 300.0, 50.0, 50.0);
+    let output = apply(&source, &[image_edit(image, Some(moved))]).unwrap();
+    assert!(near_bounds(images_of(&output)[0].bounds, moved));
+    let content = content_of(&output);
+    assert!(
+        content.starts_with("q\n1.0 0.0 0.0 1.0 200.0 -200.0 cm\n72 642 50 50 re"),
+        "{content}"
+    );
+}
+
+#[test]
+fn keeps_pictures_inside_the_clipping_around_them() {
+    let source = picture_page(
+        0,
+        "72 600 50 100 re W n q 100 0 0 100 72 600 cm /Im1 Do Q 0 0 m 10 10 l S",
+        1,
+    );
+    let image = &images_of(&source)[0];
+    assert!(near_bounds(image.bounds, bounds(72.0, 92.0, 100.0, 100.0)));
+    assert!(near_bounds(image.limits, bounds(72.0, 92.0, 50.0, 100.0)));
+}
+
+#[test]
+fn wraps_a_picture_its_group_shares_with_other_paint() {
+    let source = picture_page(0, "q 100 0 0 50 72 642 cm /Im1 Do 0 0 m 1 1 l S Q", 1);
+    let image = &images_of(&source)[0];
+    let moved = bounds(82.0, 100.0, 100.0, 50.0);
+    let output = apply(&source, &[image_edit(image, Some(moved))]).unwrap();
+    assert!(near_bounds(images_of(&output)[0].bounds, moved));
+    let content = content_of(&output);
+    assert!(
+        content.contains("q\n1.0 0.0 0.0 1.0 0.1 0.0 cm\n/Im1 Do\nQ\n0 0 m"),
+        "{content}"
+    );
+}
+
+#[test]
+fn removes_pictures_from_the_saved_file() {
+    let source = picture_page(
+        0,
+        "q 100 0 0 50 72 642 cm /Im1 Do Q q 100 0 0 50 72 400 cm /Im2 Do Q \
+         q 50 0 0 50 300 300 cm /Im2 Do Q q 20 0 0 20 300 100 cm \
+         BI /W 2 /H 2 /CS /G /BPC 8 ID wxyz EI Q",
+        2,
+    );
+    let images = images_of(&source);
+    let removed: Vec<Edit> = [0, 1, 3]
+        .iter()
+        .map(|&i| image_edit(&images[i], None))
+        .collect();
+
+    let preview = apply_document(&source, Document::load_mem(&source).unwrap(), &removed)
+        .unwrap()
+        .bytes;
+    assert!(preview.starts_with(&source));
+    assert_eq!(images_of(&preview).len(), 1);
+
+    let output = apply(&source, &removed).unwrap();
+    assert!(!output.windows(4).any(|w| w == b"wxyz"));
+    assert_eq!(image_objects(&output), [2]);
+    let doc = Document::load_mem(&output).unwrap();
+    assert!(doc.trailer.get(b"Prev").is_err());
+    let (resources, _) = doc.get_page_resources(doc.get_pages()[&1]).unwrap();
+    let xobjects = resources
+        .unwrap()
+        .get(b"XObject")
+        .unwrap()
+        .as_dict()
+        .unwrap();
+    assert!(!xobjects.has(b"Im1") && xobjects.has(b"Im2") && xobjects.has(b"Fm1"));
+    let after = images_of(&output);
+    assert_eq!(after.len(), 1);
+    assert!(near_bounds(after[0].bounds, images[2].bounds));
+}
+
+fn remove_first_picture(source: &[u8]) -> Vec<u8> {
+    let output = apply(source, &[image_edit(&images_of(source)[0], None)]).unwrap();
+    assert!(
+        Document::load_mem(&output)
+            .unwrap()
+            .trailer
+            .get(b"Prev")
+            .is_err()
+    );
+    output
+}
+
+fn pictures_on(source: &[u8], page: usize) -> usize {
+    page_images(&Document::load_mem(source).unwrap(), page)
+        .unwrap()
+        .len()
+}
+
+#[test]
+fn removes_pictures_from_shared_and_inherited_resources() {
+    for inherit in [false, true] {
+        let source = shared_pictures(
+            &[
+                "q 100 0 0 50 72 642 cm /Im1 Do Q",
+                "q 100 0 0 50 72 642 cm /Im2 Do Q /Fm1 Do",
+            ],
+            "0 0 10 10 re f",
+            inherit,
+        );
+        let output = remove_first_picture(&source);
+        assert_eq!(image_objects(&output), [2], "inherit: {inherit}");
+        assert_eq!(pictures_on(&output, 0), 0);
+        assert_eq!(pictures_on(&output, 1), 1);
+    }
+}
+
+#[test]
+fn keeps_shared_pictures_other_pages_still_draw() {
+    for inherit in [false, true] {
+        for (other, form) in [
+            ("q 50 0 0 50 300 300 cm /Im1 Do Q", ""),
+            ("/Fm1 Do", "q 10 0 0 10 0 0 cm /Im1 Do Q"),
+        ] {
+            let source =
+                shared_pictures(&["q 100 0 0 50 72 642 cm /Im1 Do Q", other], form, inherit);
+            let output = remove_first_picture(&source);
+            assert_eq!(
+                image_objects(&output),
+                [1, 2],
+                "inherit: {inherit}, other: {other}"
+            );
+            assert_eq!(pictures_on(&output, 0), 0);
+            let doc = Document::load_mem(&output).unwrap();
+            let page_id = doc.get_pages()[&2];
+            let (resources, ids) = doc.get_page_resources(page_id).unwrap();
+            let has_im1 = resources
+                .into_iter()
+                .chain(ids.iter().filter_map(|&id| doc.get_dictionary(id).ok()))
+                .filter_map(|r| r.get(b"XObject").ok())
+                .filter_map(|x| match x {
+                    Object::Reference(id) => doc.get_dictionary(*id).ok(),
+                    x => x.as_dict().ok(),
+                })
+                .any(|x| x.has(b"Im1"));
+            assert!(has_im1, "inherit: {inherit}, other: {other}");
+        }
+    }
+}
+
+#[test]
+fn combines_picture_and_line_edits_on_a_page() {
+    let source = picture_page(
+        0,
+        "BT /F1 12 Tf 72 700 Td (Hello) Tj ET q 100 0 0 50 72 500 cm /Im1 Do Q",
+        1,
+    );
+    let image = &images_of(&source)[0];
+    let line = &lines_of(&source)[0];
+    let moved = bounds(200.0, 300.0, 100.0, 50.0);
+    let output = apply(
+        &source,
+        &[line_edit(line, "Hi"), image_edit(image, Some(moved))],
+    )
+    .unwrap();
+    assert_eq!(lines_of(&output)[0].text, "Hi");
+    assert!(near_bounds(images_of(&output)[0].bounds, moved));
+}
+
+#[test]
+fn rejects_stale_and_invalid_picture_edits() {
+    let source = picture_page(0, "q 100 0 0 50 72 642 cm /Im1 Do Q", 1);
+    let image = &images_of(&source)[0];
+    let mut shifted = image.clone();
+    shifted.bounds.x += 1.0;
+    let mut missing = image.clone();
+    missing.op = 1;
+    for edit in [image_edit(&shifted, None), image_edit(&missing, None)] {
+        assert!(matches!(
+            apply(&source, &[edit]),
+            Err(EditError::StaleImage(1))
+        ));
+    }
+    let flat = image_edit(image, Some(bounds(0.0, 0.0, 10.0, 0.0)));
+    assert!(matches!(
+        apply(&source, &[flat]),
+        Err(EditError::Invalid(_))
+    ));
+}
+
+#[test]
+fn refuses_to_remove_pictures_from_encrypted_files() {
+    let source = encrypted(Permissions::all(), false);
+    let edit = Edit::Image(ImageEdit {
+        page: 0,
+        op: 0,
+        original: bounds(0.0, 0.0, 1.0, 1.0),
+        bounds: None,
+    });
+    assert!(matches!(
+        apply(&source, &[edit]),
+        Err(EditError::EncryptedImageRemoval)
+    ));
+}
+
+#[test]
+fn deserializes_picture_edits() {
+    let json = r#"{"kind":"image","page":2,"op":7,
+        "original":{"x":1,"y":2,"width":3,"height":4},"bounds":null}"#;
+    let edit: Edit = serde_json::from_str(json).unwrap();
+    let Edit::Image(image) = edit else {
+        panic!("{edit:?}")
+    };
+    assert_eq!((image.page, image.op), (2, 7));
+    assert!(image.bounds.is_none());
 }

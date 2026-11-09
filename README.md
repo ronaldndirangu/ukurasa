@@ -40,12 +40,13 @@ The installers are not code signed yet, so the first launch needs one extra step
 
 ### Editing
 
-- **Edit text** changes existing text in its own font, one line at a time. Click a line and type; select words to change their font, size, bold, italic, underline, or color. Press Enter to finish or Escape to cancel.
+- Click a line of text to change it in its own font; dragging across text doesn't open the editor. Type, or select words to change their font, size, bold, italic, underline, or color. Press Enter to finish or Escape to cancel. Opening a line marks nothing as unsaved until its text changes. To edit the text of a link, hold Ctrl (Cmd on macOS) and click it.
 - When the font lacks a character you typed, Helvetica shows that text instead and the editor says so.
+- Click a picture or figure to select it. Drag it to move it, drag its corner to resize it in proportion, or press Delete or the trash button to remove it. Arrow keys nudge a selected picture by 1 point, and Shift+arrow by 10 points.
 - **Add text** places new text anywhere on the page in the style of the text nearby; Enter starts a new line. **Sign** places a drawn or typed signature.
 - Undo and redo with Ctrl+Z and Ctrl+Y.
-- **Save** (Ctrl+S) updates the file in place, and a Save button appears beside the file name while edits are unsaved. Ukurasa appends edits as an incremental update when the file allows it, so the original bytes stay intact. **Save as** (Ctrl+Shift+S) writes a copy.
-- Editing the text of a signed PDF invalidates its signatures, so Ukurasa asks before saving.
+- **Save** (Ctrl+S) updates the file in place, and a Save button appears beside the file name while edits are unsaved. Ukurasa appends edits as an incremental update when the file allows it, so the original bytes stay intact. A save that removes a picture rewrites the whole file instead and drops the picture's data, so it can't be recovered from the file. **Save as** (Ctrl+Shift+S) writes a copy.
+- Editing the text or pictures of a signed PDF invalidates its signatures, so Ukurasa asks before saving.
 
 ## Build a release
 

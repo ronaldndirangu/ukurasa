@@ -17,14 +17,14 @@ const KERN_SPACE: f64 = -180.0;
 const SCAN_PAGES: usize = 20;
 
 /// The most decoded content a page may have for its text to be edited.
-const MAX_CONTENT: usize = 64 << 20;
+pub(crate) const MAX_CONTENT: usize = 64 << 20;
 
-pub(super) type Matrix = [f64; 6];
+pub(crate) type Matrix = [f64; 6];
 
-pub(super) const IDENTITY: Matrix = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
+pub(crate) const IDENTITY: Matrix = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
 
 /// `m × n`: applies `m`, then `n`.
-pub(super) fn mul(m: &Matrix, n: &Matrix) -> Matrix {
+pub(crate) fn mul(m: &Matrix, n: &Matrix) -> Matrix {
     [
         m[0] * n[0] + m[1] * n[2],
         m[0] * n[1] + m[1] * n[3],
@@ -39,7 +39,7 @@ pub(super) fn translate(x: f64, y: f64) -> Matrix {
     [1.0, 0.0, 0.0, 1.0, x, y]
 }
 
-pub(super) fn num(o: &Object) -> Option<f64> {
+pub(crate) fn num(o: &Object) -> Option<f64> {
     match *o {
         Object::Integer(i) => Some(i as f64),
         Object::Real(r) => Some(f64::from(r)),
@@ -51,7 +51,7 @@ pub(super) fn real(v: f64) -> Object {
     Object::Real(((v * 1000.0).round() / 1000.0) as f32)
 }
 
-pub(super) fn deref<'a>(doc: &'a Document, o: &'a Object) -> Option<&'a Object> {
+pub(crate) fn deref<'a>(doc: &'a Document, o: &'a Object) -> Option<&'a Object> {
     doc.dereference(o).ok().map(|(_, o)| o)
 }
 
@@ -68,7 +68,7 @@ pub(super) fn display_size(size: f64) -> f64 {
     (size * 100.0).round() / 100.0
 }
 
-fn matrix(operands: &[Object]) -> Option<Matrix> {
+pub(crate) fn matrix(operands: &[Object]) -> Option<Matrix> {
     let values: Vec<f64> = operands.iter().map(num).collect::<Option<_>>()?;
     values.try_into().ok()
 }
@@ -577,7 +577,7 @@ fn page_operations(doc: &Document, page_id: ObjectId) -> Result<Vec<Operation>, 
 }
 
 /// Decodes the page's content, failing when part of it can't be read.
-pub(super) fn decode_content(
+pub(crate) fn decode_content(
     doc: &Document,
     page_id: ObjectId,
 ) -> Result<Vec<Operation>, EditError> {
@@ -596,7 +596,7 @@ pub(super) fn decode_content(
 
 /// Fails when encoding `ops` again would drop an inline image, which lopdf reads as a BI
 /// operator with no image when it can't decode it.
-pub(super) fn check_images(ops: &[Operation]) -> Result<(), EditError> {
+pub(crate) fn check_images(ops: &[Operation]) -> Result<(), EditError> {
     let images_kept = ops
         .iter()
         .filter(|op| op.operator == "BI")

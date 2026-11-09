@@ -5,6 +5,7 @@
   import { clamp } from "./layout.svelte";
   import LineLayer from "./LineLayer.svelte";
   import { CARET_ROOM, lineBox, spanCss } from "./lineStyle";
+  import PictureLayer from "./PictureLayer.svelte";
 
   interface Props {
     page: number;
@@ -85,8 +86,11 @@
       style:font={box.font}
     >{#each spans as span, i (i)}<span style={spanCss(span, scale)}>{span.text}</span>{/each}</div>
   {/each}
-  {#if editor.tool === "line"}
-    <LineLayer {page} {scale} />
+  {#if editor.awake.has(page)}
+    <PictureLayer {page} {width} {scale} />
+    {#if editor.tool === "none"}
+      <LineLayer {page} {scale} />
+    {/if}
   {/if}
   {#each items as item (item.id)}
     <EditItem {item} {scale} pageWidth={width} pageHeight={height} />

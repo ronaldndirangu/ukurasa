@@ -15,6 +15,8 @@
 
   /** Room the format bar needs above a line before it moves below instead. */
   const BAR_ROOM_PX = 48;
+  /** A press that moves farther than this is a drag, which leaves the line closed. */
+  const CLICK_SLOP_PX = 3;
 
   interface Open {
     line: TextLine;
@@ -30,6 +32,7 @@
   /** The open line's text as typed so far. */
   let spans = $state.raw<Span[]>([]);
   let field = $state<ReturnType<typeof RichText>>();
+  let press: { pointer: number; x: number; y: number; line: TextLine } | null = null;
 
   const box = $derived(active ? lineBox(active.line, spans, scale, editor.lineWidth(page, active.line)) : null);
 
@@ -48,14 +51,25 @@
     };
   });
 
+  function onpointerdown(event: PointerEvent, line: TextLine) {
+    press = event.button === 0 ? { pointer: event.pointerId, x: event.clientX, y: event.clientY, line } : null;
+  }
+
+  function onpointerup(event: PointerEvent, line: TextLine) {
+    const start = press;
+    press = null;
+    if (start?.pointer !== event.pointerId || start.line !== line) return;
+    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > CLICK_SLOP_PX) return;
+    open(event, line);
+  }
+
   function open(event: PointerEvent, line: TextLine) {
-    if (event.button !== 0) return;
-    event.preventDefault();
     field?.finish();
+    editor.select(null);
     const shown = editor.lineSpans(page, line);
     const opened = spansOf(charsOf(shown), line.spans[0]);
     spans = opened;
-    active = { line, spans: opened, caret: { x: event.clientX, y: event.clientY }, token: editor.openLine() };
+    active = { line, spans: opened, caret: { x: event.clientX, y: event.clientY }, token: editor.openLine(page) };
   }
 
   function change(open: Open, rows: Span[][]) {
@@ -80,7 +94,8 @@
       style:top="{line.y * scale - 1}px"
       style:width="{editor.lineWidth(page, line) * scale + 4}px"
       style:height="{line.height * scale + 2}px"
-      onpointerdown={(event) => open(event, line)}
+      onpointerdown={(event) => onpointerdown(event, line)}
+      onpointerup={(event) => onpointerup(event, line)}
       onmousedown={(event) => event.preventDefault()}
     ></div>
   {/if}
@@ -115,16 +130,17 @@
   }
 
   .line:hover {
-    outline: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    outline: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
   }
 
   .edited {
     box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--accent) 55%, transparent);
   }
 
+  /* Above links, which take plain clicks on the text under them. */
   .editor {
     position: absolute;
+    z-index: 2;
     pointer-events: auto;
   }
 </style>

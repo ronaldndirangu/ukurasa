@@ -22,6 +22,7 @@ Editing existing PDFs and signing them is the core of the app. A PDF stores posi
 | Overlay edits | 2 | Add text boxes, whiteout and replace, fill forms, annotate, sign | Annotations and form fields with generated appearances; incremental update | Preserved |
 | In-place line edits | 3 | Click an existing text line and change its words | Rewritten page content stream; incremental update | Preserved; changes stay within the line, with no reflow |
 | In-place paragraph edits | 3b | Click a paragraph and edit it like a word processor text box | Rewritten page content stream; incremental update | Lines rewrap within the paragraph's width; content outside the paragraph never moves |
+| Picture edits | 3c | Move, resize, or remove a picture or figure | Rewritten placement in the page content stream; incremental update, or a full rewrite that drops the image data when a picture is removed | Preserved; text around the picture doesn't move |
 
 - Whiteout hides the original text without removing it from the file. The UI says so and points to in-place editing or redaction when the old text must be gone.
 - Markdown mode (optional, Phase 6) is for writing new documents. It never edits an existing PDF in place.
@@ -186,6 +187,13 @@ The repository contains only the crates in use. `ukurasa-sign`, `ukurasa-md`, `u
 - The page shows the new text immediately while the exact rendering loads.
 - Status: detection, reflow, and the editor UI are implemented; grouping is checked on one LaTeX paper. Remaining: the corpus run and checks in Acrobat, Chrome, and Preview.
 - Exit: paragraph edits on 20 text-heavy corpus PDFs (papers, letters, CVs, contracts) render identically in Acrobat, Chrome, and Preview; pixels outside the paragraph's area don't change; the new text extracts in reading order.
+
+### Phase 3c: Picture editing
+- Select a picture (an image XObject, an inline image, or a form XObject that draws one) and move it, resize it in proportion, or remove it; arrow keys nudge it.
+- Each edit replaces the operators that draw the picture in the page content stream and leaves the rest of the page as it was. Full-page backgrounds and scans aren't offered.
+- A save that removes a picture is a full rewrite that drops unreferenced objects, so the image data leaves the file. Encrypted files refuse removal for now, because the rewrite would have to re-encrypt the whole file.
+- The signature warning before saving covers picture edits.
+- Status: implemented and checked in the app on generated samples and one LaTeX paper's figures. Remaining: a corpus run and checks in Acrobat, Chrome, and Preview.
 
 ### Phase 4: Pages and forms
 - Merge, split, reorder, rotate, delete, insert blank pages, extract pages (full rewrite, with signature warning).

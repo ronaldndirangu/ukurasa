@@ -1,13 +1,17 @@
-import { SvelteMap } from "svelte/reactivity";
+import { SvelteMap, SvelteSet } from "svelte/reactivity";
 import {
   documentFonts,
+  pageImages,
   previewEdits,
   textLines,
   type Color,
   type DocumentFont,
   type Edit,
+  type ImageEdit,
   type LineEdit,
   type LineReport,
+  type Picture,
+  type Rect,
   type SignatureEdit,
   type Span,
   type Style,
@@ -18,16 +22,35 @@ import {
 import { clamp } from "./layout.svelte";
 import { isBlank, sameRows, sameSpans, styleOf } from "./spans";
 
-export type Tool = "none" | "text" | "sign" | "line";
+export type Tool = "none" | "text" | "sign";
 
 export interface Item {
   id: number;
   edit: Edit;
 }
 
-/** An item placed on the page as a box, as opposed to text edited in place. */
+/** An item placed on the page as a box, as opposed to the page's own text and pictures. */
 export type Placed = Item & { edit: TextEdit | SignatureEdit };
-export const isPlaced = (item: Item): item is Placed => item.edit.kind !== "line";
+export const isPlaced = (item: Item): item is Placed => item.edit.kind === "text" || item.edit.kind === "signature";
+
+export const pictureKey = (page: number, op: number) => `${page}:${op}`;
+
+/** A moved or removed picture, drawn over the page until the page shows the change. */
+export interface PictureGhost {
+  page: number;
+  op: number;
+  /** The picture as the page showed it, and where. */
+  pixels: HTMLCanvasElement;
+  from: Rect;
+  /** Where the picture went, or null when removed. */
+  to: Rect | null;
+}
+
+const sameRect = (a: Rect, b: Rect) =>
+  Math.abs(a.x - b.x) < 1e-3 &&
+  Math.abs(a.y - b.y) < 1e-3 &&
+  Math.abs(a.width - b.width) < 1e-3 &&
+  Math.abs(a.height - b.height) < 1e-3;
 
 /** A line's new text, drawn over the page until its image shows the change. */
 interface LinePatch {
@@ -88,6 +111,8 @@ class Editor {
   doc = $state<number | null>(null);
   items = $state.raw<Item[]>([]);
   selected = $state<number | null>(null);
+  /** The selected picture, by `pictureKey`. */
+  picture = $state<string | null>(null);
   /** Text item whose content is being typed. */
   editing = $state<number | null>(null);
   tool = $state<Tool>("none");
@@ -101,6 +126,9 @@ class Editor {
   patches = $state.raw<LinePatch[]>([]);
   /** Added text the pages don't show yet, drawn over them until they do. */
   unpainted = $state.raw<TextEdit[]>([]);
+  ghosts = $state.raw<PictureGhost[]>([]);
+  /** Pages the pointer has been over, whose text and pictures can be edited. */
+  awake = new SvelteSet<number>();
   /** Added text being moved, drawn over its page instead of in it. */
   #held: number | null = null;
   /** The revision of each page the viewer shows. */
@@ -117,6 +145,10 @@ class Editor {
   /** The item being edited was just created, so its typing belongs to the same undo step. */
   #fresh: number | null = null;
   #lines = new Map<number, Promise<TextLine[]>>();
+  #pictures = new Map<number, Promise<Picture[]>>();
+  /** Why the document's text can't be edited, told once the user clicks a page. */
+  #lineError: string | null = null;
+  #lineErrorTold = false;
   #fonts: Promise<DocumentFont[]> | null = null;
   /** Line and text items the pages currently show. */
   #previewed: Item[] = [];
@@ -126,8 +158,10 @@ class Editor {
   #latest: string | null = null;
   /** The latest line or text commit and the redo steps it cleared, so a failed preview can take it back. */
   #lastCommit: { items: Item[]; redo: Item[][] } | null = null;
-  /** The line field open in Edit text, by the token `openLine` gave it. */
+  /** The open line field, by the token `openLine` gave it. */
   #line = $state<number | null>(null);
+  /** The page of the open line field. */
+  linePage = $state<number | null>(null);
   /** The open line's text or style differs from what it showed when opened. */
   #lineChanged = $state(false);
   #lineTokens = 0;
@@ -161,6 +195,7 @@ class Editor {
     this.#undo = [];
     this.#redo = [];
     this.selected = null;
+    this.picture = null;
     this.editing = null;
     this.tool = "none";
     this.signature = null;
@@ -169,16 +204,22 @@ class Editor {
     this.notice = null;
     this.error = null;
     this.#lines.clear();
+    this.#pictures.clear();
+    this.#lineError = null;
+    this.#lineErrorTold = false;
+    this.awake.clear();
     this.#fonts = null;
     this.#previewed = [];
     this.#sent = "[]";
     this.#latest = null;
     this.#lastCommit = null;
     this.#line = null;
+    this.linePage = null;
     this.#lineChanged = false;
     this.#lineFloor = this.#lineTokens;
     this.patches = [];
     this.unpainted = [];
+    this.ghosts = [];
     this.#held = null;
     this.#painted.clear();
     this.#edited.clear();
@@ -188,14 +229,14 @@ class Editor {
   arm(tool: Tool) {
     this.tool = this.tool === tool ? "none" : tool;
     if (this.tool !== "sign") this.signature = null;
-    if (this.tool !== "none") this.selected = null;
+    if (this.tool !== "none") this.select(null);
   }
 
   /** Arms the sign tool with a signature to place. */
   prepareSignature(path: VectorPath, color: Color) {
     this.signature = { path, color };
     this.tool = "sign";
-    this.selected = null;
+    this.select(null);
   }
 
   placeSignature(edit: Edit) {
@@ -274,6 +315,23 @@ class Editor {
 
   select(id: number | null) {
     if (this.selected !== id) this.selected = id;
+    if (this.picture !== null) this.picture = null;
+  }
+
+  selectPicture(page: number, op: number) {
+    this.picture = pictureKey(page, op);
+    if (this.selected !== null) this.selected = null;
+  }
+
+  /** The page of the selected item or picture. */
+  get selectedPage(): number | null {
+    if (this.picture !== null) return Number(this.picture.split(":")[0]);
+    return this.get(this.selected)?.edit.page ?? null;
+  }
+
+  /** Lets the text and pictures of `page` be edited, which reads them first. */
+  wake(page: number) {
+    if (!this.awake.has(page)) this.awake.add(page);
   }
 
   /** The editable lines of a page's original text. */
@@ -286,6 +344,48 @@ class Editor {
     return lines;
   }
 
+  /** The pictures on a page of the original document. Failures resolve to none. */
+  pictures(page: number): Promise<Picture[]> {
+    let pictures = this.#pictures.get(page);
+    if (!pictures) {
+      pictures = this.doc === null ? Promise.resolve([]) : pageImages(this.doc, page).catch(() => []);
+      this.#pictures.set(page, pictures);
+    }
+    return pictures;
+  }
+
+  /** Where `picture` shows with edits applied, or null once removed. */
+  pictureBounds(page: number, picture: Picture): Rect | null {
+    const item = this.#pictureItem(page, picture.op);
+    return item ? item.edit.bounds : picture.bounds;
+  }
+
+  /**
+   * Moves or resizes a picture to `bounds`, or removes it with null. `ghost` draws it where it
+   * goes until the pages show the change.
+   */
+  movePicture(page: number, picture: Picture, bounds: Rect | null, ghost: { pixels: HTMLCanvasElement; from: Rect } | null) {
+    const existing = this.#pictureItem(page, picture.op);
+    const current = existing ? existing.edit.bounds : picture.bounds;
+    if (current && bounds && sameRect(current, bounds)) return;
+    const key = pictureKey(page, picture.op);
+    if (ghost) {
+      const others = this.ghosts.filter((other) => pictureKey(other.page, other.op) !== key);
+      this.ghosts = [...others, { page, op: picture.op, ...ghost, to: bounds }];
+    }
+    if (bounds && sameRect(bounds, picture.bounds)) {
+      this.#commit(this.items.filter((item) => item !== existing));
+    } else {
+      const edit: ImageEdit = { kind: "image", page, op: picture.op, original: picture.bounds, bounds };
+      this.#commit(
+        existing
+          ? this.items.map((item) => (item === existing ? { id: item.id, edit } : item))
+          : [...this.items, { id: nextId++, edit }],
+      );
+    }
+    if (!bounds && this.picture === key) this.picture = null;
+  }
+
   /** The fonts the document uses for text. Failures resolve to none. */
   fonts(): Promise<DocumentFont[]> {
     if (!this.#fonts) {
@@ -294,10 +394,16 @@ class Editor {
     return this.#fonts;
   }
 
-  /** Stops text editing with a message, such as when the PDF doesn't allow it. */
+  /** Remembers why a page's text can't be edited, to tell the user once they click a page. */
   linesFailed(message: string) {
-    this.error = message;
-    if (this.tool === "line") this.tool = "none";
+    this.#lineError ??= message;
+  }
+
+  /** Tells the user, once per document, why clicking its text doesn't edit it. */
+  explainLines() {
+    if (this.#lineError === null || this.#lineErrorTold) return;
+    this.#lineErrorTold = true;
+    this.notice = this.#lineError;
   }
 
   /** The styled text `line` shows with edits applied. */
@@ -314,8 +420,9 @@ class Editor {
     return line.width + (this.#reach.get(lineKey(page, line.runs)) ?? 0);
   }
 
-  /** Opens a line field in Edit text and returns the token that closes it. */
-  openLine(): number {
+  /** Opens a line field on `page` and returns the token that closes it. */
+  openLine(page: number): number {
+    this.linePage = page;
     this.#line = ++this.#lineTokens;
     this.#lineChanged = false;
     return this.#line;
@@ -330,6 +437,7 @@ class Editor {
   closeLine(token: number): boolean {
     if (token === this.#line) {
       this.#line = null;
+      this.linePage = null;
       this.#lineChanged = false;
     }
     return token > this.#lineFloor;
@@ -390,8 +498,8 @@ class Editor {
       this.arm("none");
       return true;
     }
-    if (this.selected !== null) {
-      this.selected = null;
+    if (this.selected !== null || this.picture !== null) {
+      this.select(null);
       return true;
     }
     return false;
@@ -420,6 +528,8 @@ class Editor {
     const before = this.items;
     this.#setItems(items);
     if (!this.get(this.selected)) this.selected = null;
+    // The pages show the pictures where they were until they render again.
+    this.ghosts = [];
     this.#patch(
       [...this.#edited.values()]
         .map(({ page, line }) => ({ page, line, spans: this.lineSpans(page, line) }))
@@ -440,9 +550,11 @@ class Editor {
   }
 
   /** The item is drawn into the pages, as opposed to over them or not at all. */
-  #drawn(item: Item): item is Item & { edit: LineEdit | TextEdit } {
+  #drawn(item: Item): item is Item & { edit: LineEdit | TextEdit | ImageEdit } {
     const { kind } = item.edit;
-    return kind === "line" || (kind === "text" && item.id !== this.editing && item.id !== this.#held);
+    return (
+      kind === "line" || kind === "image" || (kind === "text" && item.id !== this.editing && item.id !== this.#held)
+    );
   }
 
   /** The style of the line nearest `at`, so added text matches the text around it. */
@@ -484,6 +596,15 @@ class Editor {
     if (patches.length < this.patches.length) this.patches = patches;
     const unpainted = this.unpainted.filter(({ page }) => stale(page));
     if (unpainted.length < this.unpainted.length) this.unpainted = unpainted;
+    const ghosts = this.ghosts.filter(({ page }) => stale(page));
+    if (ghosts.length < this.ghosts.length) this.ghosts = ghosts;
+  }
+
+  #pictureItem(page: number, op: number): (Item & { edit: ImageEdit }) | undefined {
+    return this.items.find(
+      (item): item is Item & { edit: ImageEdit } =>
+        item.edit.kind === "image" && item.edit.page === page && item.edit.op === op,
+    );
   }
 
   #lineItem(page: number, runs: number[], items = this.items): (Item & { edit: LineEdit }) | undefined {
