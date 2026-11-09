@@ -88,9 +88,10 @@
         <Icon name="sidebar" />
       </button>
     {/if}
-    <Menu label="File" title="">
+    <Menu label="File">
       {#snippet trigger()}
-        <span class="file">File</span>
+        <Icon name="open" />
+        <span class="label file">File</span>
       {/snippet}
       <button role="menuitem" onclick={onopen}>
         <Icon name="open" size={16} />
@@ -276,8 +277,9 @@
     padding-right: 0.625rem;
   }
 
+  /* Matches the end padding of the labeled tools; the trigger button belongs to Menu. */
   .file {
-    padding: 0 0.25rem;
+    padding-right: 0.25rem;
   }
 
   @media (max-width: 960px) {
