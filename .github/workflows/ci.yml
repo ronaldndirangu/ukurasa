@@ -92,9 +92,27 @@ jobs:
           cache: pnpm
           cache-dependency-path: app/pnpm-lock.yaml
 
+      # The install step downloads PDFium only when this cache misses. The key covers the
+      # pinned release and checksums in the script.
+      - name: Restore PDFium
+        id: pdfium
+        uses: actions/cache/restore@v6
+        with:
+          path: app/src-tauri/pdfium
+          key: pdfium-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('app/scripts/fetch-pdfium.mjs') }}
+
       - name: Install frontend dependencies
         working-directory: app
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: pnpm install --frozen-lockfile
+
+      - name: Save PDFium
+        if: github.ref == 'refs/heads/main' && steps.pdfium.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: app/src-tauri/pdfium
+          key: ${{ steps.pdfium.outputs.cache-primary-key }}
 
       - name: Check frontend
         if: runner.os == 'Linux'
